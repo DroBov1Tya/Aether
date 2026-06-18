@@ -19,7 +19,7 @@ pub async fn save_data(
     let raw = match req.body.as_str() {
         Some(s) => s.to_string(),
         None => {
-            tracing::warn!("hnx  {}  body is not a string", req.target);
+            tracing::warn!("hxn  {}  body is not a string", req.target);
             return (StatusCode::OK, Json(json!({ "status": "skipped" })));
         }
     };
@@ -27,7 +27,7 @@ pub async fn save_data(
     let image_bytes = match STANDARD.decode(&raw) {
         Ok(b) => b,
         Err(e) => {
-            tracing::warn!("hnx  {}  base64 decode error: {e}", req.target);
+            tracing::warn!("hxn  {}  base64 decode error: {e}", req.target);
             return (
                 StatusCode::BAD_REQUEST,
                 Json(json!({ "status": "error", "error": e.to_string() })),
@@ -40,7 +40,7 @@ pub async fn save_data(
     let s3_key = match s3_screenshot::upload(&state.s3, &req.target, port, &image_bytes).await {
         Ok(key) => key,
         Err(e) => {
-            tracing::warn!("hnx  {}  s3 upload error: {e}", req.target);
+            tracing::warn!("hxn  {}  s3 upload error: {e}", req.target);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "status": "error", "error": e.to_string() })),
@@ -56,13 +56,13 @@ pub async fn save_data(
     };
 
     if let Err(e) = insert_screenshot::insert(&state.ch, row).await {
-        tracing::warn!("hnx  {}  clickhouse insert error: {e}", req.target);
+        tracing::warn!("hxn  {}  clickhouse insert error: {e}", req.target);
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "status": "error", "error": e.to_string() })),
         );
     }
 
-    tracing::info!("hnx  {}  screenshot={}  size={}", req.target, s3_key, image_bytes.len());
+    tracing::info!("hxn  {}  screenshot={}  size={}", req.target, s3_key, image_bytes.len());
     (StatusCode::OK, Json(json!({ "status": "ok" })))
 }

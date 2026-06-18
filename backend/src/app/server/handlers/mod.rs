@@ -1,6 +1,10 @@
 pub mod common;
+pub mod getlast;
+pub mod host;
 pub mod hxn;
 pub mod nmap;
 pub mod register;
 pub mod rustscan;
+pub mod search;
+pub mod stats;
 pub mod whatweb;

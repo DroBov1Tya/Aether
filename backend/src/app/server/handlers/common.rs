@@ -16,5 +16,5 @@ where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    serde_json::from_str(&s).map_err(serde::de::Error::custom)
+    Ok(serde_json::from_str(&s).unwrap_or(Value::String(s)))
 }
