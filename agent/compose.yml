@@ -14,13 +14,11 @@ services:
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    depends_on:
-      - mockserver
     environment:
       RUST_LOG: ${RUST_LOG:-info}
       TZ: ${TZ:-UTC}
       SERVER_PATH: 0.0.0.0:8020
-      EXTERNAL_SERVER_PATH: ${EXTERNAL_SERVER_PATH:-mockserver:8080}
+      EXTERNAL_SERVER_PATH: ${EXTERNAL_SERVER_PATH:-http://backend:8080}
       SCANS_OUTPUT_PATH: /data/scans
       SCAN_TIMEOUT: ${SCAN_TIMEOUT:-60}
       HXN_DELAY: ${HXN_DELAY:-5}
@@ -29,23 +27,12 @@ services:
     volumes:
       - ./screenshots:/app/screenshots
     networks:
-      - aether_net
-
-  mockserver:
-    hostname: mockserver
-    container_name: aether-mockserver
-    build:
-      context: ../mockserver
-    ports:
-      - "8080:8080"
-    environment:
-      API_KEY: ${API_KEY:-aether_secret_key_change_me}
-    networks:
-      - aether_net
+      - Aether
 
 volumes:
   agent_data:
 
 networks:
-  aether_net:
-    name: aether_aether_net
+  Aether:
+    driver: bridge
+    external: true

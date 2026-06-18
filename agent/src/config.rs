@@ -23,7 +23,6 @@ pub struct Config {
     pub server_path: String,
     pub external_server_path: String,
     pub hxn_delay: u64,
-    pub screenshot_cooldown: u64,
     pub scan_cooldown: u64,
     pub image_output_path: String,
     pub api_key: String,
@@ -68,7 +67,6 @@ impl Config {
                 .unwrap_or_else(|_| "localhost:8020".to_string()),
             external_server_path: env("EXTERNAL_SERVER_PATH"),
             hxn_delay: env_or("HXN_DELAY", "5").parse().unwrap_or(5),
-            screenshot_cooldown: env_or("SCREENSHOT_COOLDOWN", "60").parse().unwrap_or(60),
             scan_cooldown: env_or("SCAN_COOLDOWN", "60").parse().unwrap_or(60),
             image_output_path: std::env::var("IMAGE_OUTPUT_PATH")
                 .unwrap_or_else(|_| "./images_output".to_string()),

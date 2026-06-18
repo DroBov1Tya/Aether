@@ -21,18 +21,21 @@ pub async fn run_nmap(
     let xml_path = format!("{}/scan_{}.xml", scans_output_path, timestamp);
     let mut http_services: Vec<String> = Vec::new();
 
-    let output = Command::new("nmap")
-        .args(&[
-            "-sV",
-            "-sC",
-            "-sT",
-            &format!("-p{}", ports),
-            target,
-            "-oX",
-            &xml_path,
-        ])
-        .output()
-        .await?;
+    let mut cmd = Command::new("nmap");
+    super::common::apply_proxy(&mut cmd);
+
+    let port_arg = format!("-p{}", ports);
+    let mut args = vec!["-sV", "-sC", "-sT", &port_arg];
+    let proxies = &crate::config::cfg().proxies;
+    if let Some(proxy) = super::common::pick_random(proxies) {
+        args.push("--proxies");
+        args.push(proxy);
+    }
+    args.push(target);
+    args.push("-oX");
+    args.push(&xml_path);
+
+    let output = cmd.args(&args).output().await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

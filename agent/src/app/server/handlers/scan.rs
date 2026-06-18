@@ -1,7 +1,6 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::app::AppState;
 use crate::app::tools;
@@ -72,12 +71,6 @@ pub async fn start_scan(
         {
             Ok(_) => tracing::info!("✅ whatweb  {}  ports={:?}", target, http_ports),
             Err(e) => tracing::warn!("❌ whatweb  {}  err={e}", target),
-        }
-
-        let cooldown = state.cfg.screenshot_cooldown;
-        if cooldown > 0 {
-            tracing::info!("⏳ cooling down {}s before screenshot", cooldown);
-            tokio::time::sleep(Duration::from_secs(cooldown)).await;
         }
 
         match tools::hxn::run_screenshot(

@@ -43,7 +43,7 @@ pub async fn run_screenshot(
             "--disable-web-security".to_string(),
         ];
 
-        if let Some(proxy) = cfg.proxies.first() {
+        if let Some(proxy) = super::common::pick_random(&cfg.proxies) {
             args.push(format!("--proxy-server={}", proxy));
         }
 

@@ -26,7 +26,9 @@ pub async fn run_whatweb(
         let url = format!("http://{}:{}", target, port);
         let output_file = format!("/tmp/whatweb_{}_{}.json", target.replace(':', "_"), port);
 
-        let output = Command::new("whatweb")
+        let mut cmd = Command::new("whatweb");
+        super::common::apply_proxy(&mut cmd);
+        let output = cmd
             .args(["--log-json", &output_file, &url])
             .output()
             .await?;
