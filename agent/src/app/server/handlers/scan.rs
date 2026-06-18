@@ -1,6 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::app::AppState;
 use crate::app::tools;
@@ -19,18 +20,24 @@ pub async fn start_scan(
     tokio::task::spawn(async move {
         let mut ports: Vec<i64> = Vec::new();
 
-        match tools::rustscan::run_rustscan(&state.cfg.external_server_path, &target).await {
+        match tools::rustscan::run_rustscan(
+            &state.cfg.external_server_path,
+            &target,
+            &state.cfg.api_key,
+        )
+        .await
+        {
             Ok(p) => {
+                tracing::info!("✅ rustscan  {}  ports={:?}", target, p);
                 ports = p;
-                tracing::info!(target = "scan", host = %target, ports = ?ports, "RustScan completed");
             }
             Err(e) => {
-                tracing::warn!(target = "scan", host = %target, error = %e, "RustScan failed — skipping Nmap/WhatWeb/Hxn");
+                tracing::warn!("❌ rustscan  {}  err={e}", target);
                 return;
             }
         }
 
-        let ports_str: String = ports
+        let ports_str = ports
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
@@ -41,58 +48,54 @@ pub async fn start_scan(
             &target,
             &ports_str,
             &state.cfg.scans_output_path,
+            &state.cfg.api_key,
         )
         .await
         {
-            Ok(http_services) => {
-                tracing::info!(
-                    target = "scan",
-                    host = %target,
-                    http_ports = ?http_services,
-                    "Nmap scan completed, found {} HTTP services",
-                    http_services.len()
-                );
-                http_services
+            Ok(h) => {
+                tracing::info!("✅ nmap  {}  http={:?}", target, h);
+                h
             }
             Err(e) => {
-                tracing::error!(
-                    target = "scan",
-                    host = %target,
-                    error = %e,
-                    "Nmap scan failed"
-                );
+                tracing::warn!("❌ nmap  {}  err={e}", target);
                 Vec::new()
             }
         };
 
-        match tools::whatweb::run_whatweb(&state.cfg.external_server_path, &target, &http_ports)
-            .await
+        match tools::whatweb::run_whatweb(
+            &state.cfg.external_server_path,
+            &target,
+            &http_ports,
+            &state.cfg.api_key,
+        )
+        .await
         {
-            Ok(_) => tracing::info!(target = "scan", host = %target, "WhatWeb scan completed"),
-            Err(e) => {
-                tracing::error!(target = "scan", host = %target, error = %e, "WhatWeb scan failed")
-            }
+            Ok(_) => tracing::info!("✅ whatweb  {}  ports={:?}", target, http_ports),
+            Err(e) => tracing::warn!("❌ whatweb  {}  err={e}", target),
         }
 
-        match tools::hxn::run_hxn(
+        let cooldown = state.cfg.screenshot_cooldown;
+        if cooldown > 0 {
+            tracing::info!("⏳ cooling down {}s before screenshot", cooldown);
+            tokio::time::sleep(Duration::from_secs(cooldown)).await;
+        }
+
+        match tools::hxn::run_screenshot(
             &state.cfg.external_server_path,
             &target,
             &state.cfg.hxn_delay,
             &http_ports,
+            &state.cfg.api_key,
         )
         .await
         {
-            Ok(_) => tracing::info!(target = "scan", host = %target, "Hxn screenshot completed"),
-            Err(e) => {
-                tracing::error!(target = "scan", host = %target, error = %e, "Hxn scan failed")
-            }
+            Ok(_) => tracing::info!("✅ hxn  {}  ports={:?}", target, http_ports),
+            Err(e) => tracing::warn!("❌ hxn  {}  err={e}", target),
         }
     });
 
     (
         StatusCode::OK,
-        Json(serde_json::json!({
-           "status": "started",
-        })),
+        Json(serde_json::json!({ "status": "started" })),
     )
 }

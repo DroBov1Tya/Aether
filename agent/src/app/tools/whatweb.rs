@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 
+use super::common::ExternalReq;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhatWebResult {
     pub host: String,
@@ -16,6 +18,7 @@ pub async fn run_whatweb(
     external_server_path: &String,
     target: &str,
     http_ports: &[String],
+    api_key: &str,
 ) -> Result<()> {
     let mut all_results = Vec::new();
 
@@ -29,19 +32,15 @@ pub async fn run_whatweb(
             .await?;
 
         if !output.status.success() {
-            tracing::error!(
-                target = "whatweb",
-                url = %url,
-                stderr = %String::from_utf8_lossy(&output.stderr),
-                "Whatweb failed"
-            );
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::warn!("[{:>15}] {}  err={}", "whatweb", url, stderr.trim());
             continue;
         }
 
         let content = match std::fs::read_to_string(&output_file) {
             Ok(c) => c,
             Err(e) => {
-                tracing::error!(target = "whatweb", error = %e, "Failed to read output");
+                tracing::warn!("[{:>15}] read {}: {}", "whatweb", output_file, e);
                 let _ = std::fs::remove_file(&output_file);
                 continue;
             }
@@ -50,7 +49,7 @@ pub async fn run_whatweb(
         let json_results: Vec<serde_json::Value> = match serde_json::from_str(&content) {
             Ok(r) => r,
             Err(e) => {
-                tracing::error!(target = "whatweb", error = %e, "Failed to parse JSON");
+                tracing::warn!("[{:>15}] parse {}: {}", "whatweb", output_file, e);
                 let _ = std::fs::remove_file(&output_file);
                 continue;
             }
@@ -88,14 +87,32 @@ pub async fn run_whatweb(
         let _ = std::fs::remove_file(&output_file);
     }
 
-    let _ = send_to_server(&external_server_path, &all_results).await?;
+    let _ = send_to_server(&external_server_path, target, &all_results, api_key).await?;
 
     Ok(())
 }
 
-async fn send_to_server(external_server_path: &String, results: &Vec<WhatWebResult>) -> Result<()> {
+async fn send_to_server(
+    external_server_path: &String,
+    target: &str,
+    results: &Vec<WhatWebResult>,
+    api_key: &str,
+) -> Result<()> {
     let client = reqwest::Client::new();
-    let url = format!("http://localhost:{}/", external_server_path);
-    let _ = client.post(&url).json(results).send().await?;
+    let url = format!("{}/api/checkout/whatweb", external_server_path);
+
+    let json = ExternalReq {
+        status: "complete".to_string(),
+        target: target.to_string(),
+        body: serde_json::to_string(results).unwrap_or_default(),
+        version: crate::config::VERSION,
+    };
+
+    let _ = client
+        .post(&url)
+        .header("X-API-KEY", api_key)
+        .json(&json)
+        .send()
+        .await?;
     Ok(())
 }

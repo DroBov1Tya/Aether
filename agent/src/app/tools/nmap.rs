@@ -1,18 +1,19 @@
 use anyhow::Result;
-use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
-use tokio::fs;
-use tokio::process::Command;
+use std::time::Duration;
+use tokio::{fs, process::Command};
 
 mod parser;
 
+#[tracing::instrument(name = "nmap", skip_all, fields(target = target))]
 pub async fn run_nmap(
-    external_server_path: &String,
+    external_server_path: &str,
     target: &str,
     ports: &str,
     scans_output_path: &str,
-) -> Result<(Vec<String>)> {
+    api_key: &str,
+) -> Result<Vec<String>> {
     let out_dir = Path::new(scans_output_path);
     fs::create_dir_all(out_dir).await?;
 
@@ -20,90 +21,73 @@ pub async fn run_nmap(
     let xml_path = format!("{}/scan_{}.xml", scans_output_path, timestamp);
     let mut http_services: Vec<String> = Vec::new();
 
-    let mut cmd = Command::new("nmap");
-    cmd.arg("-sV")
-        .arg("-sC")
-        .arg("-O")
-        .arg(format!("-p{}", ports))
-        .arg(target)
-        .arg("-oX")
-        .arg(&xml_path);
-
-    tracing::info!(
-        target = "nmap",
-        host = %target,
-        ports = %ports,
-        output = %xml_path,
-        "Running nmap scan"
-    );
-
-    let output = cmd.output().await?;
+    let output = Command::new("nmap")
+        .args(&[
+            "-sV",
+            "-sC",
+            "-sT",
+            &format!("-p{}", ports),
+            target,
+            "-oX",
+            &xml_path,
+        ])
+        .output()
+        .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        tracing::error!(target = "nmap", stderr = %stderr, "Nmap scan failed");
         anyhow::bail!("nmap failed: {stderr}");
     }
-
-    tracing::info!(
-        target = "nmap",
-        host = %target,
-        ports = %ports,
-        xml = %xml_path,
-        "Nmap scan completed successfully"
-    );
 
     match parser::parse_nmap_xml(&xml_path) {
         Ok(map) => {
             for result_port in map.iter() {
                 if let Err(e) =
-                    send_result_to_server(external_server_path, result_port, target).await
+                    send_result(external_server_path, result_port, target, api_key).await
                 {
-                    tracing::warn!(target = "nmap", error = %e, port = ?result_port, "Failed to report port result");
+                    tracing::warn!(error = %e, "Failed to report port result");
                 }
                 if let Some(port) = result_port.get("port") {
-                    if result_port.get("service").map(String::as_str) == Some("http") {
+                    if matches!(
+                        result_port.get("service").map(String::as_str),
+                        Some("http") | Some("https")
+                    ) {
                         http_services.push(port.clone());
                     }
                 }
             }
         }
         Err(e) => {
-            tracing::warn!(
-                target = "nmap_parser",
-                error = %e,
-                "Failed to parse nmap XML"
-            );
+            tracing::warn!(error = %e, "Failed to parse nmap XML");
         }
+    }
+
+    let cooldown = crate::config::cfg().scan_cooldown;
+    if cooldown > 0 {
+        tracing::info!("Cooldown {}s", cooldown);
+        tokio::time::sleep(Duration::from_secs(cooldown)).await;
     }
 
     Ok(http_services)
 }
 
-async fn send_result_to_server(
+async fn send_result(
     external_server_path: &str,
     result_port: &HashMap<String, String>,
     target: &str,
+    api_key: &str,
 ) -> Result<()> {
-    let url = format!("http://{}/api/checkout/nmap", external_server_path);
+    let url = format!("{}/api/checkout/nmap", external_server_path);
+    let json = super::common::ExternalReq {
+        status: "complete".to_string(),
+        target: target.to_string(),
+        body: serde_json::to_string(result_port)?,
+        version: crate::config::VERSION,
+    };
 
-    let body = json!({
-        "host": target,
-        "scan_result": result_port,
-        "status": "complete"
-    });
-
-    tracing::debug!(target = "nmap", url = %url, body = %body, "Sending result to server");
-
-    let response = reqwest::Client::new().post(&url).json(&body).send().await?;
-
-    let status = response.status();
-    let text = response.text().await.unwrap_or_default();
-
-    if !status.is_success() {
-        anyhow::bail!("server returned {status}: {text}");
+    let response = super::common::post_json(&url, &json, api_key).await?;
+    if !response.status().is_success() {
+        anyhow::bail!("server returned {}", response.status());
     }
-
-    tracing::info!(target = "nmap", status = %status, body = %text, "Result accepted by server");
     Ok(())
 }

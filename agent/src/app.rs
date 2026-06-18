@@ -18,7 +18,7 @@ pub struct Application {
 
 impl Application {
     pub async fn build() -> Result<Self> {
-        tracing::info!("⏳ Building...");
+        tracing::info!("Building application");
 
         let _ = config::init();
         let cfg = config::cfg();
@@ -30,21 +30,21 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<()> {
-        tracing::info!("🚀 Starting...");
+        tracing::info!("Starting");
 
         let server_state = Arc::clone(&self.state);
 
         let server_handle = tokio::spawn(async move {
             match server::api::start(server_state).await {
-                Ok(()) => tracing::info!("✅ REST API stopped"),
-                Err(e) => tracing::warn!("⚠️ REST API error (MCP stdio unaffected): {}", e),
+                Ok(()) => tracing::info!("REST API stopped"),
+                Err(e) => tracing::warn!("REST API error: {}", e),
             }
         });
 
-        tracing::info!("✨ Ready");
+        tracing::info!("Ready");
 
         tokio::signal::ctrl_c().await.ok();
-        tracing::info!("🛑 Shutdown");
+        tracing::info!("Shutdown");
         let _ = self.state.shutdown.send(());
 
         let _ = server_handle.await;

@@ -1,67 +1,109 @@
 use anyhow::Result;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use std::path::PathBuf;
-use tokio::{fs, process::Command};
+use std::time::Duration;
+use tokio::{fs, process::Command, time::sleep};
 
-pub async fn run_hxn(
+#[tracing::instrument(name = "hxn", skip_all, fields(target = target))]
+pub async fn run_screenshot(
     external_server_path: &str,
     target: &str,
     delay: &u64,
     http_ports: &[String],
+    api_key: &str,
 ) -> Result<()> {
-    for port in http_ports {
-        let url = format!("{}:{}", target, port);
+    let screenshot_dir = PathBuf::from("/app/screenshots");
+    if !screenshot_dir.exists() {
+        fs::create_dir_all(&screenshot_dir).await.ok();
+    }
 
-        tracing::info!(target = "hxn", url = %url, "Running hxn screenshot");
+    let cfg = crate::config::cfg();
 
-        let output = Command::new("hxn")
-            .arg("-u")
-            .arg(&url)
-            .arg("--fullpage")
-            .arg("--delay")
-            .arg(delay.to_string())
+    for raw_port in http_ports {
+        let port = raw_port.trim();
+        let scheme = if port == "443" { "https" } else { "http" };
+        let url = if port == "80" || port == "443" {
+            format!("{}://{}", scheme, target)
+        } else {
+            format!("{}://{}:{}", scheme, target, port)
+        };
+
+        let filename = format!("{}_{}.png", target.replace(['.', ':'], "_"), port);
+        let out_path = screenshot_dir.join(&filename);
+
+        let mut args = vec![
+            "--headless=new".to_string(),
+            "--no-sandbox".to_string(),
+            "--disable-gpu".to_string(),
+            "--disable-software-rasterizer".to_string(),
+            format!("--screenshot={}", out_path.to_string_lossy()),
+            "--window-size=1920,1080".to_string(),
+            "--disable-features=NetworkServiceInProcess2".to_string(),
+            "--ignore-certificate-errors".to_string(),
+            "--disable-web-security".to_string(),
+        ];
+
+        if let Some(proxy) = cfg.proxies.first() {
+            args.push(format!("--proxy-server={}", proxy));
+        }
+
+        args.push(url.clone());
+
+        let output = Command::new("chromium")
+            .args(&args)
+            .env("TERM", "xterm")
+            .env("HOME", "/tmp")
+            .env("XDG_RUNTIME_DIR", "/tmp")
             .output()
             .await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            tracing::error!(target = "hxn", stderr = %stderr, "hxn failed");
-            anyhow::bail!("hxn failed: {stderr}");
+            tracing::error!("chromium failed: {stderr}");
+            continue;
         }
 
-        tracing::info!(target = "hxn", url = %url, "hxn completed successfully");
+        sleep(Duration::from_millis(800)).await;
 
-        let screenshot_path = screenshot_path_for(&url);
-        send_screenshot(external_server_path, port, &screenshot_path).await?;
+        if fs::metadata(&out_path).await.is_ok() {
+            if let Err(e) =
+                send_screenshot(external_server_path, target, port, &out_path, api_key).await
+            {
+                tracing::error!("Failed to send screenshot: {}", e);
+            }
+        } else {
+            tracing::warn!("chromium did not create {:?}", out_path);
+        }
     }
 
     Ok(())
 }
 
-fn screenshot_path_for(url: &str) -> PathBuf {
-    let stem: String = url.chars().filter(|c| c.is_alphanumeric()).collect();
-    PathBuf::from("./hxnshots/").join(format!("{stem}.png"))
-}
-
-async fn send_screenshot(external_server_path: &str, port: &str, path: &PathBuf) -> Result<()> {
+async fn send_screenshot(
+    external_server_path: &str,
+    target: &str,
+    port: &str,
+    path: &PathBuf,
+    api_key: &str,
+) -> Result<()> {
     let image_bytes = fs::read(path).await?;
-    let encoded = STANDARD.encode(&image_bytes);
-
-    let client = reqwest::Client::new();
-    let url = format!("http://{external_server_path}/api/checkout/hxn");
-
-    let response = client
-        .post(&url)
-        .json(&serde_json::json!({
-            "port": port,
-            "screenshot": encoded,
-        }))
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        anyhow::bail!("failed to send screenshot to {url}: {}", response.status());
+    if image_bytes.len() < 1000 {
+        tracing::warn!("Screenshot is too small (likely error page), skipping");
+        return Ok(());
     }
 
+    let encoded = STANDARD.encode(&image_bytes);
+    let url = format!("{}/api/checkout/hxn", external_server_path);
+    let json = super::common::ExternalReq {
+        status: "success".to_string(),
+        target: target.to_string(),
+        body: encoded,
+        version: crate::config::VERSION,
+    };
+
+    let response = super::common::post_json(&url, &json, api_key).await?;
+    if !response.status().is_success() {
+        anyhow::bail!("API returned {}", response.status());
+    }
     Ok(())
 }
