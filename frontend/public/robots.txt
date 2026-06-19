@@ -1,0 +1,15 @@
+User-agent: *
+Disallow: /
+
+User-agent: Googlebot
+Disallow: /
+Noindex: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /

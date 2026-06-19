@@ -1,0 +1,9 @@
+{
+  "name": "Aether",
+  "short_name": "Aether",
+  "description": "Private Internet Observatory",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#8c93fb"
+}
