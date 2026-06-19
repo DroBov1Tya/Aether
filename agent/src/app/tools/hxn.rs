@@ -8,25 +8,34 @@ use tokio::{fs, process::Command, time::sleep};
 pub async fn run_screenshot(
     external_server_path: &str,
     target: &str,
-    delay: &u64,
+    _delay: &u64,
     http_ports: &[String],
     api_key: &str,
 ) -> Result<()> {
-    let screenshot_dir = PathBuf::from("/app/screenshots");
-    if !screenshot_dir.exists() {
-        fs::create_dir_all(&screenshot_dir).await.ok();
+    if http_ports.is_empty() {
+        tracing::warn!(target, "hxn: no HTTP ports, skipping");
+        return Ok(());
     }
+
+    let screenshot_dir = PathBuf::from("/app/screenshots");
+    fs::create_dir_all(&screenshot_dir).await.ok();
 
     let cfg = crate::config::cfg();
 
     for raw_port in http_ports {
-        let port = raw_port.trim();
-        let scheme = if port == "443" { "https" } else { "http" };
+        let port = raw_port.trim().to_string();
+        let scheme = if port == "443" || port == "8443" || port == "993" {
+            "https"
+        } else {
+            "http"
+        };
         let url = if port == "80" || port == "443" {
             format!("{}://{}", scheme, target)
         } else {
             format!("{}://{}:{}", scheme, target, port)
         };
+
+        tracing::info!(target, port = &port, scheme, url = &url, "hxn: screenshot");
 
         let filename = format!("{}_{}.png", target.replace(['.', ':'], "_"), port);
         let out_path = screenshot_dir.join(&filename);
@@ -58,8 +67,8 @@ pub async fn run_screenshot(
             .await?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            tracing::error!("chromium failed: {stderr}");
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            tracing::warn!(target, port = &port, err = %stderr, "chromium failed");
             continue;
         }
 
@@ -67,12 +76,12 @@ pub async fn run_screenshot(
 
         if fs::metadata(&out_path).await.is_ok() {
             if let Err(e) =
-                send_screenshot(external_server_path, target, port, &out_path, api_key).await
+                send_screenshot(external_server_path, target, &port, &out_path, api_key).await
             {
-                tracing::error!("Failed to send screenshot: {}", e);
+                tracing::error!(target, port = &port, err = %e, "Failed to send screenshot");
             }
         } else {
-            tracing::warn!("chromium did not create {:?}", out_path);
+            tracing::warn!(target, port = &port, path = %out_path.display(), "chromium did not create file");
         }
     }
 
@@ -88,7 +97,7 @@ async fn send_screenshot(
 ) -> Result<()> {
     let image_bytes = fs::read(path).await?;
     if image_bytes.len() < 1000 {
-        tracing::warn!("Screenshot is too small (likely error page), skipping");
+        tracing::warn!(target, port = %port, size = image_bytes.len(), "screenshot too small, skipping");
         return Ok(());
     }
 

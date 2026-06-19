@@ -12,16 +12,8 @@ use std::sync::Arc;
 use super::routes;
 use crate::app::AppState;
 
-async fn require_api_key(
-    State(state): State<Arc<AppState>>,
-    req: Request,
-    next: Next,
-) -> Response {
-    let Some(key) = req
-        .headers()
-        .get("x-api-key")
-        .and_then(|v| v.to_str().ok())
-    else {
+async fn require_api_key(State(state): State<Arc<AppState>>, req: Request, next: Next) -> Response {
+    let Some(key) = req.headers().get("x-api-key").and_then(|v| v.to_str().ok()) else {
         return (StatusCode::UNAUTHORIZED, "missing x-api-key header").into_response();
     };
 
@@ -38,10 +30,9 @@ pub async fn start(state: Arc<AppState>) -> Result<()> {
 
     if Path::new(&server_path).exists() {
         tokio::fs::remove_file(&server_path).await?;
-        tracing::info!("🧹 Removed old socket");
     }
 
-    let listener = match DualListener::bind(format!("{}", &server_path)).await {
+    let listener = match DualListener::bind(server_path.as_str()).await {
         Ok(l) => l,
         Err(e) => {
             tracing::warn!(

@@ -26,7 +26,7 @@ impl Application {
     pub async fn build() -> Result<Self> {
         tracing::info!("⏳ Building...");
 
-        let _ = config::init();
+        config::init();
         let cfg = config::cfg();
         let (shutdown, _) = broadcast::channel(1);
 
@@ -37,7 +37,11 @@ impl Application {
         let pg = databases::postgres::new(&cfg.db_location).await?;
         tracing::info!("  ✅ PostgreSQL connected");
 
-        let ch = databases::clickhouse::new(&cfg.clickhouse_url, &cfg.clickhouse_user, &cfg.clickhouse_password)?;
+        let ch = databases::clickhouse::new(
+            &cfg.clickhouse_url,
+            &cfg.clickhouse_user,
+            &cfg.clickhouse_password,
+        )?;
         tracing::info!("  ✅ ClickHouse connected");
 
         let s3 = databases::s3::new(

@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -13,6 +14,8 @@ struct Host {
     address: Option<Vec<Address>>,
     #[serde(rename = "ports")]
     ports: Option<PortsContainer>,
+    #[serde(rename = "os")]
+    os: Option<Os>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +42,8 @@ pub struct Port {
     state: State,
     #[serde(rename = "service")]
     service: Option<Service>,
+    #[serde(rename = "script", default)]
+    scripts: Vec<Script>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,11 +70,37 @@ pub struct Service {
     method: Option<String>,
     #[serde(rename = "@conf")]
     conf: Option<String>,
+    #[serde(rename = "@tunnel")]
+    tunnel: Option<String>,
+    #[serde(rename = "cpe", default)]
+    cpe: Vec<String>,
 }
 
-pub fn parse_nmap_xml(path: &str) -> Result<Vec<HashMap<String, String>>, anyhow::Error> {
-    let content = std::fs::read_to_string(path)?;
-    let run: NmapRun = quick_xml::de::from_str(&content)?;
+#[derive(Debug, Deserialize)]
+struct Script {
+    #[serde(rename = "@id")]
+    id: String,
+    #[serde(rename = "@output")]
+    output: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Os {
+    #[serde(rename = "osmatch", default)]
+    osmatch: Vec<OsMatch>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OsMatch {
+    #[serde(rename = "@name")]
+    name: String,
+    #[serde(rename = "@accuracy")]
+    accuracy: Option<String>,
+}
+
+pub fn parse_nmap_xml(path: &str) -> Result<Vec<HashMap<String, String>>> {
+    let content = std::fs::read_to_string(path).context("failed to read nmap xml")?;
+    let run: NmapRun = quick_xml::de::from_str(&content).context("failed to parse nmap xml")?;
 
     let mut results = Vec::new();
 
@@ -80,6 +111,17 @@ pub fn parse_nmap_xml(path: &str) -> Result<Vec<HashMap<String, String>>, anyhow
             .and_then(|addrs| addrs.iter().find(|a| a.addr_type == "ipv4"))
             .map(|a| a.addr.clone())
             .unwrap_or_else(|| "unknown".to_string());
+
+        let os_name = host
+            .os
+            .as_ref()
+            .and_then(|os| os.osmatch.first())
+            .map(|m| m.name.clone());
+        let os_accuracy = host
+            .os
+            .as_ref()
+            .and_then(|os| os.osmatch.first())
+            .and_then(|m| m.accuracy.clone());
 
         if let Some(ports) = &host.ports {
             for port in &ports.port {
@@ -115,6 +157,42 @@ pub fn parse_nmap_xml(path: &str) -> Result<Vec<HashMap<String, String>>, anyhow
                     if let Some(conf) = &svc.conf {
                         port_info.insert("confidence".to_string(), conf.clone());
                     }
+                    if let Some(tunnel) = &svc.tunnel {
+                        port_info.insert("tunnel".to_string(), tunnel.clone());
+                    }
+
+                    if !svc.cpe.is_empty() {
+                        port_info.insert("cpe".to_string(), svc.cpe.join(", "));
+                    }
+                }
+
+                if !port.scripts.is_empty() {
+                    let scripts_json: Vec<String> = port
+                        .scripts
+                        .iter()
+                        .map(|s| {
+                            let output = s
+                                .output
+                                .as_deref()
+                                .unwrap_or("")
+                                .replace('\\', "\\\\")
+                                .replace('"', "\\\"")
+                                .replace('\n', "\\n")
+                                .replace('\r', "");
+                            format!("\"{}\":\"{}\"", s.id, output)
+                        })
+                        .collect();
+                    port_info.insert(
+                        "scripts".to_string(),
+                        format!("{{{}}}", scripts_json.join(",")),
+                    );
+                }
+
+                if let Some(ref name) = os_name {
+                    port_info.insert("os_name".to_string(), name.clone());
+                }
+                if let Some(ref acc) = os_accuracy {
+                    port_info.insert("os_accuracy".to_string(), acc.clone());
                 }
 
                 results.push(port_info);

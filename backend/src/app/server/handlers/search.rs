@@ -1,17 +1,16 @@
+use crate::app::AppState;
+use crate::app::databases::clickhouse::queries::search;
+use crate::app::databases::s3::queries::download as s3_download;
 use axum::{
+    Json,
     extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-
-use crate::app::databases::clickhouse::queries::search;
-use crate::app::databases::s3::queries::download as s3_download;
-use crate::app::AppState;
 
 #[derive(Deserialize)]
 pub struct QParam {
@@ -57,7 +56,9 @@ pub async fn search_ip(
     match search::search_by_ip(&state.ch, &params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_ip error: {e}");
@@ -76,7 +77,9 @@ pub async fn search_domain(
     match search::search_by_domain(&state.ch, &params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_domain error: {e}");
@@ -95,7 +98,9 @@ pub async fn search_port(
     match search::search_by_port(&state.ch, params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_port error: {e}");
@@ -114,7 +119,9 @@ pub async fn search_title(
     match search::search_by_title(&state.ch, &params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_title error: {e}");
@@ -130,10 +137,13 @@ pub async fn search_technology(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
-    match search::search_by_technology(&state.ch, &params.q, params.per_page, params.offset()).await {
+    match search::search_by_technology(&state.ch, &params.q, params.per_page, params.offset()).await
+    {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_technology error: {e}");
@@ -152,7 +162,9 @@ pub async fn search_protocol(
     match search::search_by_protocol(&state.ch, &params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_protocol error: {e}");
@@ -171,7 +183,9 @@ pub async fn search_service(
     match search::search_by_service(&state.ch, &params.q, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
-            Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
         ),
         Err(e) => {
             tracing::warn!("search_service error: {e}");
@@ -187,7 +201,9 @@ pub async fn search_image(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
-    let rows = match search::search_by_image(&state.ch, &params.q, params.per_page, params.offset()).await {
+    let rows = match search::search_by_image(&state.ch, &params.q, params.per_page, params.offset())
+        .await
+    {
         Ok(data) => data,
         Err(e) => {
             tracing::warn!("search_image error: {e}");
@@ -205,7 +221,7 @@ pub async fn search_image(
             match s3_download::get_object(&state.s3, &s3_key).await {
                 Ok(bytes) => Some(STANDARD.encode(&bytes)),
                 Err(e) => {
-                    tracing::warn!("search_image  s3 download failed: {e}");
+                    tracing::warn!("search_image s3 download failed: {e}");
                     None
                 }
             }
@@ -223,6 +239,90 @@ pub async fn search_image(
 
     (
         StatusCode::OK,
-        Json(json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data })),
+        Json(
+            json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+        ),
     )
+}
+
+pub async fn search_aggregated(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<QParam>,
+) -> impl IntoResponse {
+    match search::search_aggregated(&state.ch, &params.q, params.per_page, params.offset()).await {
+        Ok(data) => (
+            StatusCode::OK,
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
+        ),
+        Err(e) => {
+            tracing::warn!("search_aggregated error: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": "error", "error": e.to_string() })),
+            )
+        }
+    }
+}
+
+pub async fn list_screenshots(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<QParam>,
+) -> impl IntoResponse {
+    match search::list_all_screenshots(&state.ch, params.per_page, params.offset()).await {
+        Ok(data) => (
+            StatusCode::OK,
+            Json(json!({ "status": "ok", "data": data })),
+        ),
+        Err(e) => {
+            tracing::warn!("list_screenshots error: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": "error", "error": e.to_string() })),
+            )
+        }
+    }
+}
+
+pub async fn search_dns(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<QParam>,
+) -> impl IntoResponse {
+    match search::search_by_dns(&state.ch, &params.q, params.per_page, params.offset()).await {
+        Ok(data) => (
+            StatusCode::OK,
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
+        ),
+        Err(e) => {
+            tracing::warn!("search_dns error: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": "error", "error": e.to_string() })),
+            )
+        }
+    }
+}
+
+pub async fn search_ssl(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<QParam>,
+) -> impl IntoResponse {
+    match search::search_by_ssl(&state.ch, &params.q, params.per_page, params.offset()).await {
+        Ok(data) => (
+            StatusCode::OK,
+            Json(
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            ),
+        ),
+        Err(e) => {
+            tracing::warn!("search_ssl error: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": "error", "error": e.to_string() })),
+            )
+        }
+    }
 }

@@ -66,6 +66,8 @@ RUN apt-get update && apt-get install -y \
     whatweb \
     chromium \
     chromium-driver \
+    dnsutils \
+    openssl \
     bash \
     libgbm1 \
     libnss3 \

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, Json},
+    extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -7,10 +7,10 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::json;
 use std::sync::Arc;
 
+use super::common::CheckoutReq;
+use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_screenshot;
 use crate::app::databases::s3::queries::insert_screenshot as s3_screenshot;
-use crate::app::AppState;
-use super::common::CheckoutReq;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,
@@ -63,6 +63,11 @@ pub async fn save_data(
         );
     }
 
-    tracing::info!("hxn  {}  screenshot={}  size={}", req.target, s3_key, image_bytes.len());
+    tracing::info!(
+        "hxn  {}  screenshot={}  size={}",
+        req.target,
+        s3_key,
+        image_bytes.len()
+    );
     (StatusCode::OK, Json(json!({ "status": "ok" })))
 }

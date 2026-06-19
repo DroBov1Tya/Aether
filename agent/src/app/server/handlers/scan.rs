@@ -17,7 +17,7 @@ pub async fn start_scan(
     let target = scan_target.target.clone();
 
     tokio::task::spawn(async move {
-        let mut ports: Vec<i64> = Vec::new();
+        let ports: Vec<i64>;
 
         match tools::rustscan::run_rustscan(
             &state.cfg.external_server_path,
@@ -84,6 +84,25 @@ pub async fn start_scan(
         {
             Ok(_) => tracing::info!("✅ hxn  {}  ports={:?}", target, http_ports),
             Err(e) => tracing::warn!("❌ hxn  {}  err={e}", target),
+        }
+
+        match tools::dns::run_dns(&state.cfg.external_server_path, &target, &state.cfg.api_key)
+            .await
+        {
+            Ok(_) => tracing::info!("✅ dns  {}", target),
+            Err(e) => tracing::warn!("❌ dns  {}  err={e}", target),
+        }
+
+        match tools::ssl::run_ssl(
+            &state.cfg.external_server_path,
+            &target,
+            &http_ports,
+            &state.cfg.api_key,
+        )
+        .await
+        {
+            Ok(_) => tracing::info!("✅ ssl  {}", target),
+            Err(e) => tracing::warn!("❌ ssl  {}  err={e}", target),
         }
     });
 

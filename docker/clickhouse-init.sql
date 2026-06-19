@@ -1,14 +1,5 @@
--- ============================================================
--- Aether — ClickHouse initialization
--- Database: aether
--- Tables: scan_results_*
--- ============================================================
-
 CREATE DATABASE IF NOT EXISTS aether;
 
--- -----------------------------------------------------------
--- scan_results_rustscan — list of open ports per target
--- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS aether.scan_results_rustscan (
     target      String,
     ports       Array(UInt16),
@@ -16,9 +7,6 @@ CREATE TABLE IF NOT EXISTS aether.scan_results_rustscan (
 ) ENGINE = MergeTree()
 ORDER BY (target, scanned_at);
 
--- -----------------------------------------------------------
--- scan_results_nmap — service-detection results (one row/port)
--- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS aether.scan_results_nmap (
     target            String,
     port              UInt16,
@@ -32,13 +20,16 @@ CREATE TABLE IF NOT EXISTS aether.scan_results_nmap (
     os_type           Nullable(String),
     detection_method  Nullable(String),
     confidence        Nullable(UInt8),
+    banner            Nullable(String),
+    cpe               Nullable(String),
+    scripts           Nullable(String),
+    os_name           Nullable(String),
+    os_accuracy       Nullable(UInt8),
+    ttl               Nullable(UInt8),
     scanned_at        DateTime DEFAULT now()
 ) ENGINE = MergeTree()
 ORDER BY (target, port, scanned_at);
 
--- -----------------------------------------------------------
--- scan_results_whatweb — technology detection (one row/page)
--- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS aether.scan_results_whatweb (
     target        String,
     port          UInt16,
@@ -50,9 +41,6 @@ CREATE TABLE IF NOT EXISTS aether.scan_results_whatweb (
 ) ENGINE = MergeTree()
 ORDER BY (target, port, scanned_at);
 
--- -----------------------------------------------------------
--- scan_screenshots — screenshot metadata (image stored in S3)
--- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS aether.scan_screenshots (
     target      String,
     port        UInt16,
@@ -61,3 +49,32 @@ CREATE TABLE IF NOT EXISTS aether.scan_screenshots (
     taken_at    DateTime DEFAULT now()
 ) ENGINE = MergeTree()
 ORDER BY (target, port, taken_at);
+
+CREATE TABLE IF NOT EXISTS aether.scan_results_dns (
+    target      String,
+    a           Array(String),
+    aaaa        Array(String),
+    cname       Array(String),
+    mx          Array(String),
+    ns          Array(String),
+    txt         Array(String),
+    ptr         Array(String),
+    scanned_at  DateTime DEFAULT now()
+) ENGINE = MergeTree()
+ORDER BY (target, scanned_at);
+
+CREATE TABLE IF NOT EXISTS aether.scan_results_ssl (
+    host          String,
+    port          UInt16,
+    subject       String,
+    issuer        String,
+    not_before    String,
+    not_after     String,
+    serial        String,
+    san           Array(String),
+    ssl_version   String,
+    cipher        String,
+    chain_length  UInt8,
+    scanned_at    DateTime DEFAULT now()
+) ENGINE = MergeTree()
+ORDER BY (host, port, scanned_at);

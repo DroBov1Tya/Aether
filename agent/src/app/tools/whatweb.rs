@@ -15,7 +15,7 @@ pub struct WhatWebResult {
 }
 
 pub async fn run_whatweb(
-    external_server_path: &String,
+    external_server_path: &str,
     target: &str,
     http_ports: &[String],
     api_key: &str,
@@ -23,7 +23,12 @@ pub async fn run_whatweb(
     let mut all_results = Vec::new();
 
     for port in http_ports {
-        let url = format!("http://{}:{}", target, port);
+        let scheme = if port == "443" || port == "8443" || port == "993" {
+            "https"
+        } else {
+            "http"
+        };
+        let url = format!("{}://{}:{}", scheme, target, port);
         let output_file = format!("/tmp/whatweb_{}_{}.json", target.replace(':', "_"), port);
 
         let mut cmd = Command::new("whatweb");
@@ -89,18 +94,17 @@ pub async fn run_whatweb(
         let _ = std::fs::remove_file(&output_file);
     }
 
-    let _ = send_to_server(&external_server_path, target, &all_results, api_key).await?;
+    send_to_server(external_server_path, target, &all_results, api_key).await?;
 
     Ok(())
 }
 
 async fn send_to_server(
-    external_server_path: &String,
+    external_server_path: &str,
     target: &str,
-    results: &Vec<WhatWebResult>,
+    results: &[WhatWebResult],
     api_key: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
     let url = format!("{}/api/checkout/whatweb", external_server_path);
 
     let json = ExternalReq {
@@ -110,11 +114,9 @@ async fn send_to_server(
         version: crate::config::VERSION,
     };
 
-    let _ = client
-        .post(&url)
-        .header("X-API-KEY", api_key)
-        .json(&json)
-        .send()
-        .await?;
+    let response = super::common::post_json(&url, &json, api_key).await?;
+    if !response.status().is_success() {
+        anyhow::bail!("server returned {}", response.status());
+    }
     Ok(())
 }

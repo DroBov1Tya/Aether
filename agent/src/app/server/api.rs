@@ -12,16 +12,8 @@ use std::sync::Arc;
 use super::routes;
 use crate::app::AppState;
 
-async fn require_api_key(
-    State(state): State<Arc<AppState>>,
-    req: Request,
-    next: Next,
-) -> Response {
-    let Some(key) = req
-        .headers()
-        .get("x-api-key")
-        .and_then(|v| v.to_str().ok())
-    else {
+async fn require_api_key(State(state): State<Arc<AppState>>, req: Request, next: Next) -> Response {
+    let Some(key) = req.headers().get("x-api-key").and_then(|v| v.to_str().ok()) else {
         return (StatusCode::UNAUTHORIZED, "missing x-api-key header").into_response();
     };
 

@@ -9,9 +9,7 @@ pub async fn upload(
 ) -> Result<String> {
     let key = format!("screenshots/{}/{}.png", target, port);
 
-    bucket
-        .put_object(&key, image_bytes)
-        .await?;
+    bucket.put_object(&key, image_bytes).await?;
 
     Ok(key)
 }

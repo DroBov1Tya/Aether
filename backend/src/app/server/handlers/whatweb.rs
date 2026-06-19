@@ -1,14 +1,14 @@
 use axum::{
-    extract::{State, Json},
+    extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
 };
 use serde_json::json;
 use std::sync::Arc;
 
-use crate::app::databases::clickhouse::queries::insert_whatweb;
-use crate::app::AppState;
 use super::common::CheckoutReq;
+use crate::app::AppState;
+use crate::app::databases::clickhouse::queries::insert_whatweb;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,

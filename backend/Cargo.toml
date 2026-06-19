@@ -9,12 +9,9 @@ axum = "0.8.9"
 axum-listener = "0.3.0"
 base64 = "0.22.1"
 clickhouse = "0.15.1"
-colored = "3.1.1"
 dotenv = "0.15.0"
-obfstr = "0.4.4"
-redis = { version = "0.28.2", features = ["tokio-comp"] }
-reqwest = { version = "0.13.4", features = ["json", "socks", "rustls"] }
 rust-s3 = { version = "0.35.0", default-features = false, features = ["tokio-rustls-tls"] }
+redis = { version = "0.28.2", features = ["tokio-comp"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "rust_decimal"] }

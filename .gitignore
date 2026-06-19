@@ -18,3 +18,4 @@ target/
 agent/.env
 .DS_Store
 .env
+/agent/screenshots

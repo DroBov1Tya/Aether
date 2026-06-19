@@ -1,8 +1,6 @@
 use std::sync::OnceLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 pub fn init_logger() {
     tracing_subscriber::registry()
         .with(
@@ -65,7 +63,5 @@ pub fn init() {
 }
 
 pub fn cfg() -> &'static Config {
-    CONFIG
-        .get()
-        .expect("Config not initialized — call config::init() first")
+    CONFIG.get().expect("config not initialized")
 }

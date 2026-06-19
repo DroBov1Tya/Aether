@@ -25,10 +25,18 @@ pub fn from_json(target: &str, item: &serde_json::Value) -> Option<WhatwebRow> {
         port: item.get("port")?.as_str()?.parse().ok()?,
         url: item.get("url")?.as_str()?.to_string(),
         http_status: item.get("http_status").and_then(|v| {
-            if v.is_null() { None } else { v.as_str().and_then(|s| s.parse().ok()) }
+            if v.is_null() {
+                None
+            } else {
+                v.as_str().and_then(|s| s.parse().ok())
+            }
         }),
         title: item.get("title").and_then(|v| {
-            if v.is_null() { None } else { v.as_str().map(String::from) }
+            if v.is_null() {
+                None
+            } else {
+                v.as_str().map(String::from)
+            }
         }),
         technologies: item
             .get("technologies")

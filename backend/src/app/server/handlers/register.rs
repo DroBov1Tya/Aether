@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, Json},
+    extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -8,8 +8,8 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::app::databases::postgres::queries::insert_agent;
 use crate::app::AppState;
+use crate::app::databases::postgres::queries::insert_agent;
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterReq {
@@ -24,7 +24,9 @@ pub async fn register_agent(
 ) -> impl IntoResponse {
     let agent_id = Uuid::new_v4();
 
-    if let Err(e) = insert_agent::insert(&state.pg, agent_id, &req.ip, &req.hostname, &req.version).await {
+    if let Err(e) =
+        insert_agent::insert(&state.pg, agent_id, &req.ip, &req.hostname, &req.version).await
+    {
         tracing::warn!("register error: {e}");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -32,7 +34,11 @@ pub async fn register_agent(
         );
     }
 
-    tracing::info!("registered agent  id={agent_id}  ip={}  hostname={}", req.ip, req.hostname);
+    tracing::info!(
+        "registered agent  id={agent_id}  ip={}  hostname={}",
+        req.ip,
+        req.hostname
+    );
     (
         StatusCode::CREATED,
         Json(json!({

@@ -10,10 +10,8 @@ pub async fn run_rustscan(
 ) -> Result<Vec<i64>> {
     let mut cmd = Command::new("rustscan");
     super::common::apply_proxy(&mut cmd);
-    let output = cmd
-        .args(&["-a", target, "--greppable"])
-        .output()
-        .await?;
+
+    let output = cmd.args(["-a", target, "--greppable"]).output().await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -68,11 +66,7 @@ async fn send_result(
         version: crate::config::VERSION,
     };
 
-    let response = super::common::post_json(&url, &json, api_key).await
-        .map_err(|e| {
-            tracing::error!("rustscan post_json failed: {:?}", e);
-            e
-        })?;
+    let response = super::common::post_json(&url, &json, api_key).await?;
     if !response.status().is_success() {
         anyhow::bail!("server returned {}", response.status());
     }
