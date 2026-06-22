@@ -62,6 +62,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -u 1000 appuser && \
     chown -R appuser:appuser /app
+    
 
 COPY --from=builder --chown=appuser:appuser /output/app /app/app
 

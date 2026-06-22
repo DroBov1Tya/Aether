@@ -12,6 +12,8 @@ pub struct DnsRow {
     pub ns: Vec<String>,
     pub txt: Vec<String>,
     pub ptr: Vec<String>,
+    pub country: Option<String>,
+    pub scan_uid: String,
 }
 
 pub async fn insert(client: &Client, row: DnsRow) -> Result<()> {
@@ -21,9 +23,10 @@ pub async fn insert(client: &Client, row: DnsRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(item: &serde_json::Value) -> Option<DnsRow> {
+pub fn from_json(scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<DnsRow> {
     Some(DnsRow {
         target: item.get("target")?.as_str()?.to_string(),
+        scan_uid: scan_uid.to_string(),
         a: parse_str_array(item.get("a")?),
         aaaa: parse_str_array(item.get("aaaa")?),
         cname: parse_str_array(item.get("cname")?),
@@ -31,6 +34,7 @@ pub fn from_json(item: &serde_json::Value) -> Option<DnsRow> {
         ns: parse_str_array(item.get("ns")?),
         txt: parse_str_array(item.get("txt")?),
         ptr: parse_str_array(item.get("ptr")?),
+        country,
     })
 }
 

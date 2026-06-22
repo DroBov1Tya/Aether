@@ -1,6 +1,15 @@
+use reqwest::Client;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
+
+static COUNTRY_CACHE: Mutex<Option<HashMap<String, Option<String>>>> = Mutex::new(None);
+
+pub const CENSYS_UA: &str =
+    "Mozilla/5.0 (compatible; Censys Inspect/1.1; +https://about.censys.io/)";
+pub const CENSYS_NMAP_ARGS: &[&str] = &["--osscan-guess", "--badsum", "--version-intensity=9"];
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ExternalReq {
@@ -8,6 +17,11 @@ pub struct ExternalReq {
     pub target: String,
     pub body: String,
     pub version: &'static str,
+    pub scan_uid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_uid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 pub fn pick_random(items: &[String]) -> Option<&String> {
@@ -29,6 +43,41 @@ pub fn apply_proxy(cmd: &mut Command) {
         cmd.env("HTTP_PROXY", proxy);
         cmd.env("HTTPS_PROXY", proxy);
     }
+}
+
+pub async fn lookup_country(target: &str) -> Option<String> {
+    {
+        let cache = COUNTRY_CACHE.lock().unwrap();
+        if let Some(ref map) = *cache {
+            if let Some(cached) = map.get(target) {
+                return cached.clone();
+            }
+        }
+    }
+
+    let url = format!("http://ip-api.com/json/{}?fields=country", target);
+    let result = match Client::builder().timeout(Duration::from_secs(5)).build() {
+        Ok(client) => match client.get(&url).send().await {
+            Ok(resp) => match resp.json::<serde_json::Value>().await {
+                Ok(body) => body
+                    .get("country")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                Err(_) => None,
+            },
+            Err(_) => None,
+        },
+        Err(_) => None,
+    };
+
+    {
+        let mut cache = COUNTRY_CACHE.lock().unwrap();
+        cache
+            .get_or_insert_with(HashMap::new)
+            .insert(target.to_string(), result.clone());
+    }
+
+    result
 }
 
 pub async fn post_json<T: Serialize + std::fmt::Debug>(

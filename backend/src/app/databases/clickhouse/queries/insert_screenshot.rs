@@ -8,6 +8,8 @@ pub struct ScreenshotRow {
     pub port: u16,
     pub s3_key: String,
     pub file_size: u32,
+    pub country: Option<String>,
+    pub scan_uid: String,
 }
 
 pub async fn insert(client: &Client, row: ScreenshotRow) -> Result<()> {

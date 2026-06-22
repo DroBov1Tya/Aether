@@ -13,6 +13,7 @@ pub struct NmapRow {
     pub product: Option<String>,
     pub version: Option<String>,
     pub extra_info: Option<String>,
+    pub country: Option<String>,
     pub os_type: Option<String>,
     pub detection_method: Option<String>,
     pub confidence: Option<u8>,
@@ -22,6 +23,7 @@ pub struct NmapRow {
     pub os_name: Option<String>,
     pub os_accuracy: Option<u8>,
     pub ttl: Option<u8>,
+    pub scan_uid: String,
 }
 
 pub async fn insert(client: &Client, row: NmapRow) -> Result<()> {
@@ -31,9 +33,10 @@ pub async fn insert(client: &Client, row: NmapRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(target: &str, body: &serde_json::Value) -> Option<NmapRow> {
+pub fn from_json(target: &str, scan_uid: &str, country: Option<String>, body: &serde_json::Value) -> Option<NmapRow> {
     Some(NmapRow {
         target: target.to_string(),
+        scan_uid: scan_uid.to_string(),
         port: body.get("port")?.as_str()?.parse().ok()?,
         protocol: body.get("protocol")?.as_str()?.to_string(),
         state: body.get("state")?.as_str()?.to_string(),
@@ -57,6 +60,7 @@ pub fn from_json(target: &str, body: &serde_json::Value) -> Option<NmapRow> {
             .get("extra_info")
             .and_then(|v| v.as_str())
             .map(String::from),
+        country,
         os_type: body
             .get("os_type")
             .and_then(|v| v.as_str())

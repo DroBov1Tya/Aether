@@ -1,6 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::app::AppState;
 use crate::app::tools;
@@ -8,6 +9,7 @@ use crate::app::tools;
 #[derive(Debug, Deserialize)]
 pub struct ScanTarget {
     pub target: String,
+    pub task_uid: Option<String>,
 }
 
 pub async fn start_scan(
@@ -15,6 +17,8 @@ pub async fn start_scan(
     Json(scan_target): Json<ScanTarget>,
 ) -> impl IntoResponse {
     let target = scan_target.target.clone();
+    let task_uid = scan_target.task_uid.clone();
+    let scan_uid = Uuid::new_v4().to_string();
 
     tokio::task::spawn(async move {
         let ports: Vec<i64>;
@@ -22,6 +26,8 @@ pub async fn start_scan(
         match tools::rustscan::run_rustscan(
             &state.cfg.external_server_path,
             &target,
+            &scan_uid,
+            task_uid.as_deref(),
             &state.cfg.api_key,
         )
         .await
@@ -45,6 +51,8 @@ pub async fn start_scan(
         let http_ports = match tools::nmap::run_nmap(
             &state.cfg.external_server_path,
             &target,
+            &scan_uid,
+            task_uid.as_deref(),
             &ports_str,
             &state.cfg.scans_output_path,
             &state.cfg.api_key,
@@ -64,6 +72,8 @@ pub async fn start_scan(
         match tools::whatweb::run_whatweb(
             &state.cfg.external_server_path,
             &target,
+            &scan_uid,
+            task_uid.as_deref(),
             &http_ports,
             &state.cfg.api_key,
         )
@@ -76,6 +86,8 @@ pub async fn start_scan(
         match tools::hxn::run_screenshot(
             &state.cfg.external_server_path,
             &target,
+            &scan_uid,
+            task_uid.as_deref(),
             &state.cfg.hxn_delay,
             &http_ports,
             &state.cfg.api_key,
@@ -86,8 +98,14 @@ pub async fn start_scan(
             Err(e) => tracing::warn!("❌ hxn  {}  err={e}", target),
         }
 
-        match tools::dns::run_dns(&state.cfg.external_server_path, &target, &state.cfg.api_key)
-            .await
+        match tools::dns::run_dns(
+            &state.cfg.external_server_path,
+            &target,
+            &scan_uid,
+            task_uid.as_deref(),
+            &state.cfg.api_key,
+        )
+        .await
         {
             Ok(_) => tracing::info!("✅ dns  {}", target),
             Err(e) => tracing::warn!("❌ dns  {}  err={e}", target),
@@ -96,6 +114,8 @@ pub async fn start_scan(
         match tools::ssl::run_ssl(
             &state.cfg.external_server_path,
             &target,
+            &scan_uid,
+            task_uid.as_deref(),
             &http_ports,
             &state.cfg.api_key,
         )
@@ -103,6 +123,19 @@ pub async fn start_scan(
         {
             Ok(_) => tracing::info!("✅ ssl  {}", target),
             Err(e) => tracing::warn!("❌ ssl  {}  err={e}", target),
+        }
+
+        match tools::whois::run_whois(
+            &state.cfg.external_server_path,
+            &target,
+            &scan_uid,
+            task_uid.as_deref(),
+            &state.cfg.api_key,
+        )
+        .await
+        {
+            Ok(_) => tracing::info!("✅ whois  {}", target),
+            Err(e) => tracing::warn!("❌ whois  {}  err={e}", target),
         }
     });
 

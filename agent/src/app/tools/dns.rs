@@ -14,7 +14,13 @@ pub struct DnsResult {
     pub ptr: Vec<String>,
 }
 
-pub async fn run_dns(external_server_path: &str, target: &str, api_key: &str) -> Result<()> {
+pub async fn run_dns(
+    external_server_path: &str,
+    target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
+    api_key: &str,
+) -> Result<()> {
     let mut result = DnsResult {
         target: target.to_string(),
         a: Vec::new(),
@@ -81,7 +87,15 @@ pub async fn run_dns(external_server_path: &str, target: &str, api_key: &str) ->
         result.ptr.len(),
     );
 
-    send_to_server(external_server_path, target, &result, api_key).await?;
+    send_to_server(
+        external_server_path,
+        target,
+        scan_uid,
+        task_uid,
+        &result,
+        api_key,
+    )
+    .await?;
 
     Ok(())
 }
@@ -89,17 +103,23 @@ pub async fn run_dns(external_server_path: &str, target: &str, api_key: &str) ->
 async fn send_to_server(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     result: &DnsResult,
     api_key: &str,
 ) -> Result<()> {
     let url = format!("{}/api/checkout/dns", external_server_path);
     let body = serde_json::to_string(result)?;
 
+    let country = super::common::lookup_country(target).await;
     let req = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body,
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     super::common::post_json(&url, &req, api_key).await?;

@@ -33,11 +33,19 @@ impl Application {
         tracing::info!("Starting");
 
         let server_state = Arc::clone(&self.state);
+        let backend_state = Arc::clone(&self.state);
 
         let server_handle = tokio::spawn(async move {
             match server::api::start(server_state).await {
                 Ok(()) => tracing::info!("REST API stopped"),
                 Err(e) => tracing::warn!("REST API error: {}", e),
+            }
+        });
+
+        let backend_handle = tokio::spawn(async move {
+            match tools::backend::start(backend_state).await {
+                Ok(()) => tracing::info!("Backend stopped"),
+                Err(e) => tracing::warn!("Backend error: {}", e),
             }
         });
 

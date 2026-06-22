@@ -6,6 +6,8 @@ use tokio::process::Command;
 pub async fn run_rustscan(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     api_key: &str,
 ) -> Result<Vec<i64>> {
     let mut cmd = Command::new("rustscan");
@@ -21,7 +23,16 @@ pub async fn run_rustscan(
     let stdout = String::from_utf8_lossy(&output.stdout);
     let ports = parse_ports(&stdout)?;
 
-    if let Err(e) = send_result(external_server_path, target, &ports, api_key).await {
+    if let Err(e) = send_result(
+        external_server_path,
+        target,
+        scan_uid,
+        task_uid,
+        &ports,
+        api_key,
+    )
+    .await
+    {
         tracing::warn!(error = %e, "Failed to report scan results");
     }
 
@@ -55,15 +66,21 @@ fn parse_ports(stdout: &str) -> Result<Vec<i64>> {
 async fn send_result(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     ports: &[i64],
     api_key: &str,
 ) -> Result<()> {
     let url = format!("{}/api/checkout/rustscan", external_server_path);
+    let country = super::common::lookup_country(target).await;
     let json = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(ports)?,
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

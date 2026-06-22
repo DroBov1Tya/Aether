@@ -4,14 +4,16 @@ use std::path::Path;
 use std::time::Duration;
 use tokio::{fs, process::Command};
 
-mod parser;
+use super::common::{CENSYS_NMAP_ARGS, CENSYS_UA};
 
-const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+mod parser;
 
 #[tracing::instrument(name = "nmap", skip_all, fields(target = target))]
 pub async fn run_nmap(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     ports: &str,
     scans_output_path: &str,
     api_key: &str,
@@ -27,7 +29,8 @@ pub async fn run_nmap(
     super::common::apply_proxy(&mut cmd);
 
     let port_arg = format!("-p{}", ports);
-    let mut args = vec![
+    let mut args: Vec<&str> = vec![
+        "-Pn",
         "-sV",
         "-sC",
         "-sT",
@@ -39,8 +42,9 @@ pub async fn run_nmap(
         "-f",
         "--data-length=24",
         "--script=banner,ssl-cert,http-title,http-server-header",
-        &port_arg,
     ];
+    args.extend_from_slice(CENSYS_NMAP_ARGS);
+    args.push(&port_arg);
 
     let proxies = &crate::config::cfg().proxies;
     if let Some(proxy) = super::common::pick_random(proxies) {
@@ -123,8 +127,15 @@ pub async fn run_nmap(
                     }
                 }
 
-                if let Err(e) =
-                    send_result(external_server_path, &result_port, target, api_key).await
+                if let Err(e) = send_result(
+                    external_server_path,
+                    &result_port,
+                    target,
+                    scan_uid,
+                    task_uid,
+                    api_key,
+                )
+                .await
                 {
                     tracing::warn!(error = %e, "Failed to report port result");
                 }
@@ -162,7 +173,7 @@ async fn probe_http_via_curl(target: &str, port: &str) -> Result<HashMap<String,
             "10",
             "-L",
             "-A",
-            BROWSER_UA,
+            CENSYS_UA,
             "-H",
             "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "-H",
@@ -236,14 +247,20 @@ async fn send_result(
     external_server_path: &str,
     result_port: &HashMap<String, String>,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     api_key: &str,
 ) -> Result<()> {
     let url = format!("{}/api/checkout/nmap", external_server_path);
+    let country = super::common::lookup_country(target).await;
     let json = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(result_port)?,
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

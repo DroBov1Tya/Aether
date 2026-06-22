@@ -242,9 +242,19 @@ export default function ScansPage() {
     setLaunchResult(null);
 
     try {
-      setLaunchResult(
-        `✅ Payload ready (API endpoint not yet available):\n${JSON.stringify(payload, null, 2)}`,
-      );
+      const res = await fetch("/api/proxy/api/tasks/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLaunchResult(
+          `✅ Scan launched\nTask ID: ${data.task_id}\n\n${JSON.stringify(payload, null, 2)}`,
+        );
+      } else {
+        setLaunchResult(`❌ ${data.error || res.statusText}`);
+      }
     } catch (e: any) {
       setLaunchResult(`❌ ${e.message}`);
     } finally {

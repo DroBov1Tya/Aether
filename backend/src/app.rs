@@ -1,20 +1,21 @@
 use crate::config::{self, Config};
 use anyhow::Result;
 use clickhouse::Client as ChClient;
+use redis::aio::ConnectionManager;
 use s3::bucket::Bucket;
-use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
 mod databases;
 mod server;
+mod workers;
 
 #[derive(Clone)]
 pub struct AppState {
     pub cfg: &'static Config,
     pub ch: ChClient,
-    pub pg: PgPool,
     pub s3: Bucket,
+    pub redis: ConnectionManager,
     pub shutdown: broadcast::Sender<()>,
 }
 
@@ -30,12 +31,9 @@ impl Application {
         let cfg = config::cfg();
         let (shutdown, _) = broadcast::channel(1);
 
-        tracing::info!("  db_location     = {}", cfg.db_location);
         tracing::info!("  clickhouse_url  = {}", cfg.clickhouse_url);
         tracing::info!("  s3_endpoint     = {}", cfg.s3_endpoint);
-
-        let pg = databases::postgres::new(&cfg.db_location).await?;
-        tracing::info!("  ✅ PostgreSQL connected");
+        tracing::info!("  redis_url       = {}", cfg.redis_url);
 
         let ch = databases::clickhouse::new(
             &cfg.clickhouse_url,
@@ -52,11 +50,14 @@ impl Application {
         )?;
         tracing::info!("  ✅ S3/MinIO connected");
 
+        let redis = databases::redis::new(&cfg.redis_url).await?;
+        tracing::info!("  ✅ Redis connected");
+
         let state = Arc::new(AppState {
             cfg,
             ch,
-            pg,
             s3,
+            redis,
             shutdown,
         });
 

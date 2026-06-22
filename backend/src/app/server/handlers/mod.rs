@@ -1,12 +1,8 @@
-pub mod common;
-pub mod dns;
+pub mod checkout;
 pub mod getlast;
 pub mod host;
-pub mod hxn;
-pub mod nmap;
 pub mod register;
-pub mod rustscan;
+pub mod screenshots;
 pub mod search;
-pub mod ssl;
 pub mod stats;
-pub mod whatweb;
+pub mod tasks;

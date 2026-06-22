@@ -17,6 +17,8 @@ pub struct WhatWebResult {
 pub async fn run_whatweb(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     http_ports: &[String],
     api_key: &str,
 ) -> Result<()> {
@@ -34,7 +36,13 @@ pub async fn run_whatweb(
         let mut cmd = Command::new("whatweb");
         super::common::apply_proxy(&mut cmd);
         let output = cmd
-            .args(["--log-json", &output_file, &url])
+            .args([
+                "--user-agent",
+                super::common::CENSYS_UA,
+                "--log-json",
+                &output_file,
+                &url,
+            ])
             .output()
             .await?;
 
@@ -94,7 +102,15 @@ pub async fn run_whatweb(
         let _ = std::fs::remove_file(&output_file);
     }
 
-    send_to_server(external_server_path, target, &all_results, api_key).await?;
+    send_to_server(
+        external_server_path,
+        target,
+        scan_uid,
+        task_uid,
+        &all_results,
+        api_key,
+    )
+    .await?;
 
     Ok(())
 }
@@ -102,16 +118,22 @@ pub async fn run_whatweb(
 async fn send_to_server(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     results: &[WhatWebResult],
     api_key: &str,
 ) -> Result<()> {
     let url = format!("{}/api/checkout/whatweb", external_server_path);
 
+    let country = super::common::lookup_country(target).await;
     let json = ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(results).unwrap_or_default(),
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

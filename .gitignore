@@ -19,3 +19,5 @@ agent/.env
 .DS_Store
 .env
 /agent/screenshots
+/frontend/.next
+/frontend/node_modules

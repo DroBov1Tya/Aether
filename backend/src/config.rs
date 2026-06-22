@@ -19,7 +19,6 @@ pub fn init_logger() {
 pub struct Config {
     pub server_path: String,
     pub api_key: String,
-    pub db_location: String,
     pub clickhouse_url: String,
     pub clickhouse_user: String,
     pub clickhouse_password: String,
@@ -27,6 +26,7 @@ pub struct Config {
     pub s3_access_key: String,
     pub s3_secret_key: String,
     pub s3_bucket: String,
+    pub redis_url: String,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -44,7 +44,6 @@ impl Config {
         Self {
             server_path: env_or("SERVER_PATH", "0.0.0.0:8080"),
             api_key: env("API_KEY"),
-            db_location: env("DB_LOCATION"),
             clickhouse_url: env("CLICKHOUSE_URL"),
             clickhouse_user: env("CLICKHOUSE_USER"),
             clickhouse_password: env("CLICKHOUSE_PASSWORD"),
@@ -52,6 +51,7 @@ impl Config {
             s3_access_key: env("S3_ACCESS_KEY"),
             s3_secret_key: env("S3_SECRET_KEY"),
             s3_bucket: env("S3_BUCKET"),
+            redis_url: env_or("REDIS_URL", "redis://redis:6379"),
         }
     }
 }

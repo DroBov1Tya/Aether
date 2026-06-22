@@ -56,9 +56,11 @@ function formatDate(d: string) {
 function HostSummaryCard({ host }: { host: AggregatedHost }) {
   const topTechs = (host.technologies || []).slice(0, 6);
   const topTitles = (host.titles || []).filter(Boolean).slice(0, 2);
+  // ИСПРАВЛЕНО: добавлен encodeURIComponent
+  const encodedTarget = encodeURIComponent(host.target);
   return (
     <Link
-      href={`/host/${host.target}`}
+      href={`/host/${encodedTarget}`}
       className="host-card"
       style={{ display: "block", textDecoration: "none" }}
     >
@@ -306,7 +308,17 @@ export default function SearchPage() {
           ) : results.length === 0 ? (
             <div style={{ textAlign: "center", padding: 60 }}>
               <div style={{ marginBottom: 16, opacity: 0.6 }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto" }}>
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ margin: "0 auto" }}
+                >
                   <circle cx="11" cy="11" r="7" />
                   <line x1="16.5" y1="16.5" x2="21" y2="21" />
                 </svg>
@@ -323,119 +335,124 @@ export default function SearchPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {results.map((r, i) => (
-                <Link
-                  key={i}
-                  href={`/host/${r.target || r.host}`}
-                  style={{
-                    display: "block",
-                    padding: 16,
-                    background: "rgba(0,0,0,0.3)",
-                    border: "1px solid #21262d",
-                    borderRadius: 8,
-                    textDecoration: "none",
-                  }}
-                >
-                  <div
+              {results.map((r, i) => {
+                // ИСПРАВЛЕНО: безопасное извлечение target с encodeURIComponent
+                const target = r.target || r.host || "";
+                const encodedTarget = encodeURIComponent(target);
+                return (
+                  <Link
+                    key={i}
+                    href={`/host/${encodedTarget}`}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      flexWrap: "wrap",
+                      display: "block",
+                      padding: 16,
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid #21262d",
+                      borderRadius: 8,
+                      textDecoration: "none",
                     }}
                   >
                     <div
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "#5fed83",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontFamily: "JetBrains Mono",
-                        fontSize: 14,
-                        color: "#f0f6fc",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
-                      {r.target || r.host}
-                      {r.port ? `:${r.port}` : ""}
-                    </span>
-                    {r.http_status && (
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "#5fed83",
+                        }}
+                      />
                       <span
                         style={{
-                          padding: "2px 8px",
-                          borderRadius: 60,
-                          fontSize: 11,
-                          background:
-                            r.http_status < 300
-                              ? "rgba(95,237,131,0.2)"
-                              : "rgba(240,192,0,0.2)",
-                          color: r.http_status < 300 ? "#5fed83" : "#f0c000",
+                          fontFamily: "JetBrains Mono",
+                          fontSize: 14,
+                          color: "#f0f6fc",
                         }}
                       >
-                        {r.http_status}
+                        {target}
+                        {r.port ? `:${r.port}` : ""}
                       </span>
-                    )}
-                    {(r.title || r.subject) && (
-                      <span style={{ fontSize: 13, color: "#a4aea6" }}>
-                        {r.title || r.subject}
-                      </span>
-                    )}
-                  </div>
-                  {r.technologies && r.technologies.length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 4,
-                        marginTop: 8,
-                      }}
-                    >
-                      {r.technologies.slice(0, 6).map((t: string) => (
+                      {r.http_status && (
                         <span
-                          key={t}
                           style={{
-                            padding: "1px 6px",
-                            background: "#283041",
+                            padding: "2px 8px",
                             borderRadius: 60,
-                            fontSize: 10,
-                            color: "#a4aea6",
+                            fontSize: 11,
+                            background:
+                              r.http_status < 300
+                                ? "rgba(95,237,131,0.2)"
+                                : "rgba(240,192,0,0.2)",
+                            color: r.http_status < 300 ? "#5fed83" : "#f0c000",
                           }}
                         >
-                          {t}
+                          {r.http_status}
                         </span>
-                      ))}
-                    </div>
-                  )}
-                  {r.san && r.san.length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 4,
-                        marginTop: 8,
-                      }}
-                    >
-                      {r.san.slice(0, 4).map((s: string) => (
-                        <span
-                          key={s}
-                          style={{
-                            padding: "1px 6px",
-                            background: "rgba(141,214,255,0.1)",
-                            borderRadius: 60,
-                            fontSize: 10,
-                            color: "#8dd6ff",
-                          }}
-                        >
-                          {s}
+                      )}
+                      {(r.title || r.subject) && (
+                        <span style={{ fontSize: 13, color: "#a4aea6" }}>
+                          {r.title || r.subject}
                         </span>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </Link>
-              ))}
+                    {r.technologies && r.technologies.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                          marginTop: 8,
+                        }}
+                      >
+                        {r.technologies.slice(0, 6).map((t: string) => (
+                          <span
+                            key={t}
+                            style={{
+                              padding: "1px 6px",
+                              background: "#283041",
+                              borderRadius: 60,
+                              fontSize: 10,
+                              color: "#a4aea6",
+                            }}
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {r.san && r.san.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                          marginTop: 8,
+                        }}
+                      >
+                        {r.san.slice(0, 4).map((s: string) => (
+                          <span
+                            key={s}
+                            style={{
+                              padding: "1px 6px",
+                              background: "rgba(141,214,255,0.1)",
+                              borderRadius: 60,
+                              fontSize: 10,
+                              color: "#8dd6ff",
+                            }}
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

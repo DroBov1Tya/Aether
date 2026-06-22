@@ -85,6 +85,7 @@ export interface Screenshot {
   file_size: number;
   taken_at: string;
   image_base64?: string;
+  scan_uid?: string;
 }
 
 export interface HostSummaryData {
@@ -268,8 +269,10 @@ export const searchAggregated = (q: string, p = 1, pp = 50) =>
   fetchApi<AggregatedHost[]>(
     `/api/search/aggregated?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const listScreenshots = (p = 1, pp = 40) =>
+export const listScreenshots = (p = 1, pp = 20) =>
   fetchApi<ScreenshotWithMeta[]>(`/api/screenshots?page=${p}&per_page=${pp}`);
+export const countScreenshots = () =>
+  fetchApi<{ total: number }>(`/api/screenshots/count`);
 
 export async function launchScan(payload: any) {
   if (IS_SERVER) throw new Error("launchScan can only be called from client");

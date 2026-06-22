@@ -8,24 +8,52 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::app::databases::clickhouse::queries::agents;
 use crate::app::AppState;
-use crate::app::databases::postgres::queries::insert_agent;
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct RegisterReq {
     pub hostname: String,
-    pub ip: String,
     pub version: String,
+    pub os: Option<String>,
+    pub arch: Option<String>,
+    pub kernel: Option<String>,
+    pub ip: Option<String>,
+    pub port: Option<i32>,
 }
 
 pub async fn register_agent(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterReq>,
 ) -> impl IntoResponse {
-    let agent_id = Uuid::new_v4();
+    let ip = req.ip.as_deref().unwrap_or("");
+    let port = req.port.unwrap_or(8020);
 
-    if let Err(e) =
-        insert_agent::insert(&state.pg, agent_id, &req.ip, &req.hostname, &req.version).await
+    let agent_id = match agents::find_by_ip_port(&state.ch, ip, port).await {
+        Ok(Some(existing_id)) => match Uuid::parse_str(&existing_id) {
+            Ok(id) => {
+                tracing::info!("reusing agent  id={id}  ip={ip}  port={port}");
+                id
+            }
+            Err(_) => Uuid::new_v4(),
+        },
+        Ok(None) => Uuid::new_v4(),
+        Err(e) => {
+            tracing::warn!("register lookup error: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": "error", "error": e.to_string() })),
+            );
+        }
+    };
+
+    if let Err(e) = agents::insert(
+        &state.ch, agent_id, ip, &req.hostname, &req.version, port,
+        req.os.as_deref().unwrap_or(""),
+        req.arch.as_deref().unwrap_or(""),
+        req.kernel.as_deref().unwrap_or(""),
+    )
+    .await
     {
         tracing::warn!("register error: {e}");
         return (
@@ -35,9 +63,10 @@ pub async fn register_agent(
     }
 
     tracing::info!(
-        "registered agent  id={agent_id}  ip={}  hostname={}",
-        req.ip,
-        req.hostname
+        "registered agent  id={agent_id}  ip={}  hostname={}  port={}",
+        req.ip.as_deref().unwrap_or("unknown"),
+        req.hostname,
+        port,
     );
     (
         StatusCode::CREATED,

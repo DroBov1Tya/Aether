@@ -30,6 +30,8 @@ pub struct SslResult {
 pub async fn run_ssl(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     http_ports: &[String],
     api_key: &str,
 ) -> Result<()> {
@@ -47,7 +49,16 @@ pub async fn run_ssl(
             }
         };
 
-        if let Err(e) = send_to_server(external_server_path, target, &result, api_key).await {
+        if let Err(e) = send_to_server(
+            external_server_path,
+            target,
+            scan_uid,
+            task_uid,
+            &result,
+            api_key,
+        )
+        .await
+        {
             tracing::warn!("ssl  {}:{}  send error: {}", target, port, e);
         }
 
@@ -207,17 +218,23 @@ fn parse_chain(full: &str) -> Vec<SslCertInfo> {
 async fn send_to_server(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     result: &SslResult,
     api_key: &str,
 ) -> Result<()> {
     let url = format!("{}/api/checkout/ssl", external_server_path);
     let body = serde_json::to_string(result)?;
 
+    let country = super::common::lookup_country(target).await;
     let req = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body,
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     super::common::post_json(&url, &req, api_key).await?;

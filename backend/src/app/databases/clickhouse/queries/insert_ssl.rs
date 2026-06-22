@@ -15,6 +15,8 @@ pub struct SslRow {
     pub ssl_version: String,
     pub cipher: String,
     pub chain_length: u8,
+    pub country: Option<String>,
+    pub scan_uid: String,
 }
 
 pub async fn insert(client: &Client, row: SslRow) -> Result<()> {
@@ -24,9 +26,11 @@ pub async fn insert(client: &Client, row: SslRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(item: &serde_json::Value) -> Option<SslRow> {
+pub fn from_json(scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<SslRow> {
     Some(SslRow {
         host: item.get("host")?.as_str()?.to_string(),
+        scan_uid: scan_uid.to_string(),
+        country,
         port: item.get("port")?.as_u64()? as u16,
         subject: item
             .get("subject")

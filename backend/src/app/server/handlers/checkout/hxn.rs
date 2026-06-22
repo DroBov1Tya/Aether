@@ -6,10 +6,12 @@ use axum::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::json;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use super::common::CheckoutReq;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_screenshot;
+use crate::app::databases::redis::tasks;
 use crate::app::databases::s3::queries::insert_screenshot as s3_screenshot;
 
 pub async fn save_data(
@@ -50,9 +52,11 @@ pub async fn save_data(
 
     let row = insert_screenshot::ScreenshotRow {
         target: req.target.clone(),
+        scan_uid: req.scan_uid.clone(),
         port,
         s3_key: s3_key.clone(),
         file_size: image_bytes.len() as u32,
+        country: req.country.clone(),
     };
 
     if let Err(e) = insert_screenshot::insert(&state.ch, row).await {
@@ -61,6 +65,16 @@ pub async fn save_data(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "status": "error", "error": e.to_string() })),
         );
+    }
+
+    if let Some(task_uid) = &req.task_uid {
+        if let Ok(uid) = Uuid::parse_str(task_uid) {
+            let mut con = state.redis.clone();
+            tasks::update_field(&mut con, uid, "hxn", true).await;
+            if tasks::is_all_done(&mut con, uid).await {
+                tasks::cleanup(&mut con, uid).await;
+            }
+        }
     }
 
     tracing::info!(

@@ -11,7 +11,10 @@ export default function HostCard({ host }: Props) {
   const techs = host.technologies.slice(0, 3);
 
   return (
-    <Link href={`/host/${host.target}`} className="host-card">
+    <Link
+      href={`/host/${encodeURIComponent(host.target)}`}
+      className="host-card"
+    >
       <div className="mb-3 flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-[#5fed83]" />
         <span className="font-mono text-base font-medium text-white">
@@ -19,7 +22,7 @@ export default function HostCard({ host }: Props) {
         </span>
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex-wrap gap-1.5">
         {techs.map((t) => (
           <span
             key={t}

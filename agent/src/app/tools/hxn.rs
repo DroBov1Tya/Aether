@@ -8,6 +8,8 @@ use tokio::{fs, process::Command, time::sleep};
 pub async fn run_screenshot(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     _delay: &u64,
     http_ports: &[String],
     api_key: &str,
@@ -40,6 +42,7 @@ pub async fn run_screenshot(
         let filename = format!("{}_{}.png", target.replace(['.', ':'], "_"), port);
         let out_path = screenshot_dir.join(&filename);
 
+        let censys_ua = super::common::CENSYS_UA;
         let mut args = vec![
             "--headless=new".to_string(),
             "--no-sandbox".to_string(),
@@ -50,6 +53,7 @@ pub async fn run_screenshot(
             "--disable-features=NetworkServiceInProcess2".to_string(),
             "--ignore-certificate-errors".to_string(),
             "--disable-web-security".to_string(),
+            format!("--user-agent={}", censys_ua),
         ];
 
         if let Some(proxy) = super::common::pick_random(&cfg.proxies) {
@@ -75,8 +79,16 @@ pub async fn run_screenshot(
         sleep(Duration::from_millis(800)).await;
 
         if fs::metadata(&out_path).await.is_ok() {
-            if let Err(e) =
-                send_screenshot(external_server_path, target, &port, &out_path, api_key).await
+            if let Err(e) = send_screenshot(
+                external_server_path,
+                target,
+                scan_uid,
+                task_uid,
+                &port,
+                &out_path,
+                api_key,
+            )
+            .await
             {
                 tracing::error!(target, port = &port, err = %e, "Failed to send screenshot");
             }
@@ -91,6 +103,8 @@ pub async fn run_screenshot(
 async fn send_screenshot(
     external_server_path: &str,
     target: &str,
+    scan_uid: &str,
+    task_uid: Option<&str>,
     port: &str,
     path: &PathBuf,
     api_key: &str,
@@ -103,11 +117,15 @@ async fn send_screenshot(
 
     let encoded = STANDARD.encode(&image_bytes);
     let url = format!("{}/api/checkout/hxn", external_server_path);
+    let country = super::common::lookup_country(target).await;
     let json = super::common::ExternalReq {
         status: "success".to_string(),
         target: target.to_string(),
         body: encoded,
         version: crate::config::VERSION,
+        scan_uid: scan_uid.to_string(),
+        task_uid: task_uid.map(String::from),
+        country,
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

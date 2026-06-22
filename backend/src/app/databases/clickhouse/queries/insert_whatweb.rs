@@ -10,6 +10,8 @@ pub struct WhatwebRow {
     pub http_status: Option<u16>,
     pub title: Option<String>,
     pub technologies: Vec<String>,
+    pub country: Option<String>,
+    pub scan_uid: String,
 }
 
 pub async fn insert(client: &Client, row: WhatwebRow) -> Result<()> {
@@ -19,9 +21,10 @@ pub async fn insert(client: &Client, row: WhatwebRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(target: &str, item: &serde_json::Value) -> Option<WhatwebRow> {
+pub fn from_json(target: &str, scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<WhatwebRow> {
     Some(WhatwebRow {
         target: target.to_string(),
+        scan_uid: scan_uid.to_string(),
         port: item.get("port")?.as_str()?.parse().ok()?,
         url: item.get("url")?.as_str()?.to_string(),
         http_status: item.get("http_status").and_then(|v| {
@@ -47,5 +50,6 @@ pub fn from_json(target: &str, item: &serde_json::Value) -> Option<WhatwebRow> {
                     .collect()
             })
             .unwrap_or_default(),
+        country,
     })
 }
