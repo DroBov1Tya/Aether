@@ -33,7 +33,12 @@ pub async fn insert(client: &Client, row: NmapRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(target: &str, scan_uid: &str, country: Option<String>, body: &serde_json::Value) -> Option<NmapRow> {
+pub fn from_json(
+    target: &str,
+    scan_uid: &str,
+    country: Option<String>,
+    body: &serde_json::Value,
+) -> Option<NmapRow> {
     Some(NmapRow {
         target: target.to_string(),
         scan_uid: scan_uid.to_string(),

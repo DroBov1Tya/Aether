@@ -10,6 +10,7 @@ pub struct CheckoutReq {
     #[serde(deserialize_with = "parse_body")]
     pub body: Value,
     pub country: Option<String>,
+    pub port: Option<String>,
 }
 
 fn parse_body<'de, D>(deserializer: D) -> Result<Value, D::Error>

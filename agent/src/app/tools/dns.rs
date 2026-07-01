@@ -120,6 +120,7 @@ async fn send_to_server(
         scan_uid: scan_uid.to_string(),
         task_uid: task_uid.map(String::from),
         country,
+        port: None,
     };
 
     super::common::post_json(&url, &req, api_key).await?;

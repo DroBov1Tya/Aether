@@ -1,6 +1,7 @@
 pub mod backend;
 pub mod common;
 pub mod dns;
+pub mod fuzzing;
 pub mod hxn;
 pub mod nmap;
 pub mod rustscan;

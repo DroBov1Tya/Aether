@@ -27,6 +27,8 @@ pub struct Config {
     pub scan_cooldown: u64,
     pub api_key: String,
     pub proxies: Vec<String>,
+    pub max_concurrent_scans: usize,
+    pub max_concurrent_tasks: u8,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -41,6 +43,9 @@ pub fn env_or(key: &str, default: &str) -> String {
 
 impl Config {
     fn load() -> Self {
+        // Load variables from .env file (only if present)
+        let _ = dotenv::dotenv();
+
         let proxies_str = std::env::var("PROXIES").unwrap_or_default();
         let proxies: Vec<String> = proxies_str
             .split(',')
@@ -62,6 +67,8 @@ impl Config {
             scan_cooldown: env_or("SCAN_COOLDOWN", "60").parse().unwrap_or(60),
             api_key: env("API_KEY"),
             proxies,
+            max_concurrent_scans: env_or("MAX_CONCURRENT_SCANS", "3").parse().unwrap_or(3),
+            max_concurrent_tasks: env_or("MAX_CONCURRENT_TASKS", "10").parse().unwrap_or(10),
         }
     }
 }

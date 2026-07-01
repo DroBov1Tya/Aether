@@ -1043,7 +1043,8 @@ pre {
 
 .host-body {
     display: flex;
-    min-height: calc(100vh - 60px);
+    height: calc(100vh - 60px);
+    overflow: clip;
 }
 
 .host-sidebar {

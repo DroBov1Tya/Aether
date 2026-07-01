@@ -8,9 +8,9 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::common::CheckoutReq;
-use crate::app::databases::redis::tasks;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_ssl;
+use crate::app::databases::redis::tasks;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,

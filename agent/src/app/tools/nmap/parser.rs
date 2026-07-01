@@ -27,9 +27,19 @@ struct Address {
 }
 
 #[derive(Debug, Deserialize)]
+struct ExtraPorts {
+    #[serde(rename = "@state")]
+    state: String,
+    #[serde(rename = "@count")]
+    count: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct PortsContainer {
     #[serde(rename = "port", default)]
     port: Vec<Port>,
+    #[serde(rename = "extraports")]
+    extraports: Option<ExtraPorts>,
 }
 
 #[derive(Debug, Deserialize)]

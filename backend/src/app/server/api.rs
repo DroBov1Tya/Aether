@@ -45,8 +45,10 @@ pub async fn start(state: Arc<AppState>) -> Result<()> {
     };
     tracing::info!("🚀 API listening on {}", &server_path);
 
-    let app = routes::build_router(Arc::clone(&state))
-        .layer(middleware::from_fn_with_state(state, require_api_key));
+    let app = routes::build_router(state.clone()).layer(middleware::from_fn_with_state(
+        state.clone(),
+        require_api_key,
+    ));
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {

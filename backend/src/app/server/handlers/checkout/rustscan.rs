@@ -8,9 +8,9 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::common::CheckoutReq;
-use crate::app::databases::redis::tasks;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_rustscan;
+use crate::app::databases::redis::tasks;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,
@@ -26,7 +26,15 @@ pub async fn save_data(
         })
         .unwrap_or_default();
 
-    if let Err(e) = insert_rustscan::insert(&state.ch, &req.target, &req.scan_uid, &ports, req.country.clone()).await {
+    if let Err(e) = insert_rustscan::insert(
+        &state.ch,
+        &req.target,
+        &req.scan_uid,
+        &ports,
+        req.country.clone(),
+    )
+    .await
+    {
         tracing::warn!("rustscan insert error: {e}");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -42,7 +50,7 @@ pub async fn save_data(
                 tasks::cleanup(&mut con, uid).await;
             }
         }
-        }
+    }
 
     tracing::info!("rustscan  {}  ports={:?}", req.target, ports);
     (StatusCode::OK, Json(json!({ "status": "ok" })))

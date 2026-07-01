@@ -14,19 +14,28 @@ pub async fn get_host(
     State(state): State<Arc<AppState>>,
     Path(ip): Path<String>,
 ) -> impl IntoResponse {
-    let (nmap, whatweb, screenshots, summary, dns, ssl) = tokio::join!(
+    let (nmap, rustscan, whatweb, screenshots, summary, dns, ssl, fuzzing) = tokio::join!(
         search::fetch_host_nmap(&state.ch, &ip),
+        search::fetch_host_rustscan(&state.ch, &ip),
         search::fetch_host_whatweb(&state.ch, &ip),
         search::fetch_host_screenshots(&state.ch, &ip),
         search::host_summary(&state.ch, &ip),
         search::fetch_host_dns(&state.ch, &ip),
         search::fetch_host_ssl(&state.ch, &ip),
+        search::fetch_host_fuzzing(&state.ch, &ip),
     );
 
     let nmap = nmap.unwrap_or_else(|e| {
         tracing::error!("nmap: {e}");
         vec![]
     });
+
+    let rustscan = rustscan.unwrap_or_else(|e| {
+        tracing::error!("rustscan: {e}");
+        vec![]
+    });
+
+    let nmap = if nmap.is_empty() { rustscan } else { nmap };
     let whatweb = whatweb.unwrap_or_else(|e| {
         tracing::error!("whatweb: {e}");
         vec![]
@@ -43,6 +52,10 @@ pub async fn get_host(
         tracing::error!("ssl: {e}");
         vec![]
     });
+    let fuzzing = fuzzing.unwrap_or_else(|e| {
+        tracing::error!("fuzzing: {e}");
+        vec![]
+    });
 
     let summary = summary.unwrap_or_else(|_| json!({ "open_ports": nmap.len(), "first_seen": Value::Null, "last_seen": Value::Null }));
 
@@ -51,6 +64,7 @@ pub async fn get_host(
         && screenshots.is_empty()
         && dns.is_null()
         && ssl.is_empty()
+        && fuzzing.is_empty()
     {
         return (
             StatusCode::NOT_FOUND,
@@ -65,7 +79,7 @@ pub async fn get_host(
         StatusCode::OK,
         Json(json!({
             "status": "ok", "target": ip, "open_ports": nmap, "web_services": whatweb,
-            "screenshots": screenshots, "dns": dns, "ssl": ssl,
+            "screenshots": screenshots, "dns": dns, "ssl": ssl, "fuzzing": fuzzing,
             "summary": { "open_ports": summary["open_ports"], "total_services": total_services, "first_seen": summary["first_seen"], "last_seen": summary["last_seen"] }
         })),
     )

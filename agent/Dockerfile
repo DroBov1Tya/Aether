@@ -82,6 +82,8 @@ ENV RUST_LOG=info
 ENV HOME=/tmp
 ENV XDG_RUNTIME_DIR=/tmp
 
+ENV TZ=Europe/Moscow
+RUN ln -snf /usr/share/zoneinfo/Europe/Moscow /etc/localtime && echo Europe/Moscow > /etc/timezone
 RUN mkdir -p /app/screenshots && chmod 777 /app/screenshots
 
 CMD ["./agent"]

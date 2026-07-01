@@ -6,6 +6,17 @@ use s3::bucket::Bucket;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
+fn rss_mb() -> u64 {
+    if let Ok(f) = std::fs::read_to_string("/proc/self/statm") {
+        if let Some(pages) = f.split_whitespace().next() {
+            if let Ok(pages) = pages.parse::<u64>() {
+                return pages * 4096 / 1024 / 1024;
+            }
+        }
+    }
+    0
+}
+
 mod databases;
 mod server;
 mod workers;
@@ -31,27 +42,28 @@ impl Application {
         let cfg = config::cfg();
         let (shutdown, _) = broadcast::channel(1);
 
-        tracing::info!("  clickhouse_url  = {}", cfg.clickhouse_url);
-        tracing::info!("  s3_endpoint     = {}", cfg.s3_endpoint);
-        tracing::info!("  redis_url       = {}", cfg.redis_url);
+        tracing::info!("clickhouse_url = {}", cfg.clickhouse_url);
+        tracing::info!("s3_endpoint = {}", cfg.s3_endpoint);
+        tracing::info!("redis_url = {}", cfg.redis_url);
 
         let ch = databases::clickhouse::new(
             &cfg.clickhouse_url,
             &cfg.clickhouse_user,
             &cfg.clickhouse_password,
         )?;
-        tracing::info!("  ✅ ClickHouse connected");
+        tracing::info!("✅ ClickHouse connected");
 
         let s3 = databases::s3::new(
             &cfg.s3_endpoint,
             &cfg.s3_access_key,
             &cfg.s3_secret_key,
             &cfg.s3_bucket,
-        )?;
-        tracing::info!("  ✅ S3/MinIO connected");
+        )
+        .await?;
+        tracing::info!("✅ S3/MinIO connected");
 
         let redis = databases::redis::new(&cfg.redis_url).await?;
-        tracing::info!("  ✅ Redis connected");
+        tracing::info!("✅ Redis connected");
 
         let state = Arc::new(AppState {
             cfg,
@@ -76,9 +88,27 @@ impl Application {
             }
         });
 
-        tracing::info!("✨ Ready");
+        let distributor_ch = self.state.ch.clone();
+        let distributor_redis = self.state.redis.clone();
+        let distributor_key = self.state.cfg.api_key.to_string();
+        tokio::spawn(async move {
+            workers::distributor::run(distributor_ch, distributor_redis, distributor_key).await;
+        });
 
-        tokio::signal::ctrl_c().await.ok();
+        tracing::info!("✨ Ready  RSS={}MB", rss_mb());
+
+        let sigterm = async {
+            if let Ok(mut s) =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            {
+                s.recv().await;
+            }
+        };
+
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received"),
+            _ = sigterm => tracing::info!("SIGTERM received"),
+        }
         tracing::info!("🛑 Shutdown");
         let _ = self.state.shutdown.send(());
 

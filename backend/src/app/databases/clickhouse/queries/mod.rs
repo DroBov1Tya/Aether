@@ -1,5 +1,6 @@
 pub mod agents;
 pub mod insert_dns;
+pub mod insert_fuzzing;
 pub mod insert_nmap;
 pub mod insert_rustscan;
 pub mod insert_screenshot;

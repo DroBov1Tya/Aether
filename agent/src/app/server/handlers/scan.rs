@@ -20,7 +20,16 @@ pub async fn start_scan(
     let task_uid = scan_target.task_uid.clone();
     let scan_uid = Uuid::new_v4().to_string();
 
+    let permits = state.scan_permits.clone();
+
     tokio::task::spawn(async move {
+        let _permit = match permits.acquire().await {
+            Ok(p) => p,
+            Err(_) => {
+                tracing::warn!("scan semaphore closed, dropping {}", target);
+                return;
+            }
+        };
         let ports: Vec<i64>;
 
         match tools::rustscan::run_rustscan(
@@ -82,6 +91,27 @@ pub async fn start_scan(
             Ok(_) => tracing::info!("✅ whatweb  {}  ports={:?}", target, http_ports),
             Err(e) => tracing::warn!("❌ whatweb  {}  err={e}", target),
         }
+
+        let _fuzz_findings = match tools::fuzzing::run_fuzzing(
+            &state.cfg.external_server_path,
+            &target,
+            &scan_uid,
+            task_uid.as_deref(),
+            &http_ports,
+            &state.cfg.api_key,
+        )
+        .await
+        {
+            Ok(f) => {
+                let count = f.len();
+                tracing::info!("✅ fuzzing  {}  found={}", target, count);
+                f
+            }
+            Err(e) => {
+                tracing::warn!("❌ fuzzing  {}  err={e}", target);
+                Vec::new()
+            }
+        };
 
         match tools::hxn::run_screenshot(
             &state.cfg.external_server_path,

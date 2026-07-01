@@ -10,7 +10,13 @@ pub struct RustscanRow {
     pub scan_uid: String,
 }
 
-pub async fn insert(client: &Client, target: &str, scan_uid: &str, ports: &[u16], country: Option<String>) -> Result<()> {
+pub async fn insert(
+    client: &Client,
+    target: &str,
+    scan_uid: &str,
+    ports: &[u16],
+    country: Option<String>,
+) -> Result<()> {
     let mut inserter = client
         .insert::<RustscanRow>("scan_results_rustscan")
         .await?;

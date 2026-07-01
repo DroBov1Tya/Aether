@@ -8,9 +8,9 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::common::CheckoutReq;
-use crate::app::databases::redis::tasks;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_whatweb;
+use crate::app::databases::redis::tasks;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,
@@ -21,7 +21,9 @@ pub async fn save_data(
         .as_array()
         .map(|arr| {
             arr.iter()
-                .filter_map(|v| insert_whatweb::from_json(&req.target, &req.scan_uid, req.country.clone(), v))
+                .filter_map(|v| {
+                    insert_whatweb::from_json(&req.target, &req.scan_uid, req.country.clone(), v)
+                })
                 .collect()
         })
         .unwrap_or_default();

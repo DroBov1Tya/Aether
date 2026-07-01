@@ -1,7 +1,7 @@
 use crate::config::{self, Config};
 use anyhow::Result;
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::sync::{Semaphore, broadcast};
 
 mod server;
 pub mod tools;
@@ -10,6 +10,7 @@ pub mod tools;
 pub struct AppState {
     pub cfg: &'static Config,
     pub shutdown: broadcast::Sender<()>,
+    pub scan_permits: Arc<Semaphore>,
 }
 
 pub struct Application {
@@ -24,7 +25,12 @@ impl Application {
         let cfg = config::cfg();
         let (shutdown, _) = broadcast::channel(1);
 
-        let state = Arc::new(AppState { cfg, shutdown });
+        let scan_permits = Arc::new(Semaphore::new(cfg.max_concurrent_scans));
+        let state = Arc::new(AppState {
+            cfg,
+            shutdown,
+            scan_permits,
+        });
 
         Ok(Self { state })
     }

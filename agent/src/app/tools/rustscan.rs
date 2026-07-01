@@ -81,6 +81,7 @@ async fn send_result(
         scan_uid: scan_uid.to_string(),
         task_uid: task_uid.map(String::from),
         country,
+        port: None,
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

@@ -8,15 +8,17 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::common::CheckoutReq;
-use crate::app::databases::redis::tasks;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_nmap;
+use crate::app::databases::redis::tasks;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CheckoutReq>,
 ) -> impl IntoResponse {
-    let Some(row) = insert_nmap::from_json(&req.target, &req.scan_uid, req.country.clone(), &req.body) else {
+    let Some(row) =
+        insert_nmap::from_json(&req.target, &req.scan_uid, req.country.clone(), &req.body)
+    else {
         tracing::warn!("nmap  {}  invalid body: {}", req.target, req.body);
         return (StatusCode::OK, Json(json!({ "status": "skipped" })));
     };

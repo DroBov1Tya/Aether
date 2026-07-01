@@ -26,7 +26,11 @@ pub async fn insert(client: &Client, row: SslRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<SslRow> {
+pub fn from_json(
+    scan_uid: &str,
+    country: Option<String>,
+    item: &serde_json::Value,
+) -> Option<SslRow> {
     Some(SslRow {
         host: item.get("host")?.as_str()?.to_string(),
         scan_uid: scan_uid.to_string(),

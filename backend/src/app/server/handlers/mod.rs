@@ -1,5 +1,7 @@
+pub mod agents;
 pub mod checkout;
 pub mod getlast;
+pub mod health;
 pub mod host;
 pub mod register;
 pub mod screenshots;

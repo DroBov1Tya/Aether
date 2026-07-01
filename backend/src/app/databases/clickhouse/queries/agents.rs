@@ -17,7 +17,7 @@ pub struct AgentRow {
     pub status: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentInfo {
     pub id: String,
     pub ip: String,
@@ -25,7 +25,56 @@ pub struct AgentInfo {
     pub max_concurrent_tasks: i32,
 }
 
-pub async fn insert(client: &Client, id: Uuid, ip: &str, hostname: &str, version: &str, port: i32, os: &str, arch: &str, kernel: &str) -> Result<()> {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentFull {
+    pub id: String,
+    pub ip: String,
+    pub name: String,
+    pub version: String,
+    pub port: i32,
+    pub os: String,
+    pub arch: String,
+    pub kernel: String,
+    pub max_concurrent_tasks: i32,
+    pub status: String,
+    pub last_seen_at: String,
+}
+
+pub async fn list_all(client: &Client) -> Result<Vec<AgentFull>> {
+    let bytes = client
+        .query("SELECT * FROM agents ORDER BY last_seen_at DESC")
+        .fetch_bytes("JSONEachRow")?
+        .collect()
+        .await?;
+
+    if bytes.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut seen: std::collections::HashMap<String, AgentFull> = std::collections::HashMap::new();
+    for line in bytes.split(|&b| b == b'\n') {
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_slice::<AgentFull>(line) {
+            seen.entry(v.id.clone()).or_insert(v);
+        }
+    }
+    Ok(seen.into_values().collect())
+}
+
+pub async fn insert(
+    client: &Client,
+    id: Uuid,
+    ip: &str,
+    hostname: &str,
+    version: &str,
+    port: i32,
+    os: &str,
+    arch: &str,
+    kernel: &str,
+    max_concurrent_tasks: u8,
+) -> Result<()> {
     let row = AgentRow {
         id: id.to_string(),
         ip: ip.to_string(),
@@ -35,7 +84,7 @@ pub async fn insert(client: &Client, id: Uuid, ip: &str, hostname: &str, version
         os: os.to_string(),
         arch: arch.to_string(),
         kernel: kernel.to_string(),
-        max_concurrent_tasks: 10,
+        max_concurrent_tasks,
         status: "active".to_string(),
     };
     let mut inserter = client.insert::<AgentRow>("agents").await?;

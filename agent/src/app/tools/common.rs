@@ -9,7 +9,7 @@ static COUNTRY_CACHE: Mutex<Option<HashMap<String, Option<String>>>> = Mutex::ne
 
 pub const CENSYS_UA: &str =
     "Mozilla/5.0 (compatible; Censys Inspect/1.1; +https://about.censys.io/)";
-pub const CENSYS_NMAP_ARGS: &[&str] = &["--osscan-guess", "--badsum", "--version-intensity=9"];
+pub const CENSYS_NMAP_ARGS: &[&str] = &["--osscan-guess", "--version-intensity=9"];
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ExternalReq {
@@ -22,6 +22,8 @@ pub struct ExternalReq {
     pub task_uid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub country: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<String>,
 }
 
 pub fn pick_random(items: &[String]) -> Option<&String> {

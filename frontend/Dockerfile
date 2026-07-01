@@ -28,11 +28,12 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV TZ=Europe/Moscow
+RUN ln -snf /usr/share/zoneinfo/Europe/Moscow /etc/localtime && echo Europe/Moscow > /etc/timezone
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# ✅ Передаём runtime env для серверного прокси
 ARG BACKEND_URL
 ARG API_KEY
 ENV BACKEND_URL=${BACKEND_URL}

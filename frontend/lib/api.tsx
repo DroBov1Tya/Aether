@@ -101,7 +101,16 @@ export interface HostData {
   screenshots?: Screenshot[];
   dns?: DnsRecord | null;
   ssl?: SslCert[];
+  fuzzing?: FuzzFinding[];
   summary?: HostSummaryData;
+}
+
+export interface FuzzFinding {
+  port: number;
+  path: string;
+  url: string;
+  http_status: number;
+  scanned_at: string;
 }
 
 export interface DnsRecord {
@@ -139,6 +148,7 @@ export interface AggregatedHost {
   first_seen: string;
   last_seen: string;
   scan_count: number;
+  scan_uids: string[];
 }
 
 export interface ScreenshotWithMeta {
@@ -154,6 +164,7 @@ export interface ScreenshotWithMeta {
 }
 
 export interface HostScanSnapshot {
+  scan_uid: string;
   scanned_at: string;
   ports: number[];
   port_count: number;
@@ -179,7 +190,7 @@ export interface HostSnapshotsResponse {
   snapshots: HostSnapshot[];
 }
 
-async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+export async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers);
   headers.set("Content-Type", "application/json");
   if (IS_SERVER && API_KEY) headers.set("X-API-KEY", API_KEY);

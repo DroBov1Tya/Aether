@@ -21,7 +21,12 @@ pub async fn insert(client: &Client, row: WhatwebRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(target: &str, scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<WhatwebRow> {
+pub fn from_json(
+    target: &str,
+    scan_uid: &str,
+    country: Option<String>,
+    item: &serde_json::Value,
+) -> Option<WhatwebRow> {
     Some(WhatwebRow {
         target: target.to_string(),
         scan_uid: scan_uid.to_string(),

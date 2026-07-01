@@ -28,7 +28,10 @@ impl AgentMetadata {
             .ok()
             .map(|s| s.trim().to_string());
 
-        let ip = match std::env::var("AGENT_ADDRESS").ok().filter(|v| !v.is_empty()) {
+        let ip = match std::env::var("AGENT_ADDRESS")
+            .ok()
+            .filter(|v| !v.is_empty())
+        {
             Some(v) => v,
             None => (|| {
                 let s = UdpSocket::bind("0.0.0.0:0").ok()?;

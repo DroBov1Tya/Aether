@@ -106,6 +106,17 @@ CREATE TABLE IF NOT EXISTS aether.scan_results_ssl (
 ) ENGINE = MergeTree()
 ORDER BY (host, port, scanned_at);
 
+CREATE TABLE IF NOT EXISTS aether.scan_results_fuzzing (
+    target      String,
+    port        UInt16,
+    path        String,
+    url         String,
+    http_status UInt16,
+    scan_uid    String,
+    scanned_at  DateTime DEFAULT now()
+) ENGINE = MergeTree()
+ORDER BY (target, port, scanned_at);
+
 CREATE TABLE IF NOT EXISTS aether.scan_results_whois (
     target          String,
     registrar       Nullable(String),

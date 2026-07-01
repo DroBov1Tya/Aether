@@ -50,7 +50,8 @@ async fn register(state: &AppState) -> Result<()> {
         "arch": &meta.arch,
         "ip": &meta.ip,
         "kernel": &meta.kernel,
-        "port": state.cfg.port
+        "port": state.cfg.port,
+        "max_concurrent_tasks": state.cfg.max_concurrent_tasks
     });
 
     let response = client

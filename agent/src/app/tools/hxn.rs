@@ -26,18 +26,7 @@ pub async fn run_screenshot(
 
     for raw_port in http_ports {
         let port = raw_port.trim().to_string();
-        let scheme = if port == "443" || port == "8443" || port == "993" {
-            "https"
-        } else {
-            "http"
-        };
-        let url = if port == "80" || port == "443" {
-            format!("{}://{}", scheme, target)
-        } else {
-            format!("{}://{}:{}", scheme, target, port)
-        };
-
-        tracing::info!(target, port = &port, scheme, url = &url, "hxn: screenshot");
+        let url = format!("http://{}:{}", target, port);
 
         let filename = format!("{}_{}.png", target.replace(['.', ':'], "_"), port);
         let out_path = screenshot_dir.join(&filename);
@@ -69,6 +58,8 @@ pub async fn run_screenshot(
             .env("XDG_RUNTIME_DIR", "/tmp")
             .output()
             .await?;
+
+        tracing::info!(target, port = &port, url = &url, "hxn: screenshot");
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -126,6 +117,7 @@ async fn send_screenshot(
         scan_uid: scan_uid.to_string(),
         task_uid: task_uid.map(String::from),
         country,
+        port: Some(port.to_string()),
     };
 
     let response = super::common::post_json(&url, &json, api_key).await?;

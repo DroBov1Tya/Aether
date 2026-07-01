@@ -4,11 +4,14 @@ use axum::{
 };
 use std::sync::Arc;
 
-use super::handlers::{checkout, getlast, host, register, screenshots, search, stats, tasks};
+use super::handlers::{
+    agents, checkout, getlast, host, register, screenshots, search, stats, tasks,
+};
 use crate::app::AppState;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
+        .route("/health", get(super::handlers::health::health_check))
         .route(
             "/api/checkout/rustscan",
             post(checkout::rustscan::save_data),
@@ -16,11 +19,13 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/checkout/nmap", post(checkout::nmap::save_data))
         .route("/api/checkout/whatweb", post(checkout::whatweb::save_data))
         .route("/api/checkout/hxn", post(checkout::hxn::save_data))
+        .route("/api/checkout/fuzzing", post(checkout::fuzzing::save_data))
         .route("/api/checkout/dns", post(checkout::dns::save_data))
         .route("/api/checkout/ssl", post(checkout::ssl::save_data))
         .route("/api/checkout/whois", post(checkout::whois::save_data))
         //
         .route("/api/register/agent", post(register::register_agent))
+        .route("/api/agents", get(agents::list_agents))
         //
         .route("/api/host/{ip}", get(host::get_host))
         .route("/api/host/{ip}/history", get(host::host_history))

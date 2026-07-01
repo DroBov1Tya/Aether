@@ -58,7 +58,17 @@ pub async fn create_task(
         domains: req.targets.domains,
         methods: req.methods,
     };
-    workers::runner::run_pipeline(pipe, &state.ch, &mut state.redis.clone(), &state.cfg.api_key).await;
+
+    let ch = state.ch.clone();
+    let mut redis = state.redis.clone();
+    let api_key = state.cfg.api_key.to_string();
+    tokio::spawn(async move {
+        tracing::info!("task {} background start", id);
+        match workers::runner::run_pipeline(pipe, &ch, &mut redis, &api_key).await {
+            Ok(()) => tracing::info!("task {} background done", id),
+            Err(e) => tracing::error!("task {} background error: {:?}", id, e),
+        }
+    });
 
     (
         StatusCode::CREATED,

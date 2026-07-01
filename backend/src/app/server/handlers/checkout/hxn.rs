@@ -37,7 +37,7 @@ pub async fn save_data(
         }
     };
 
-    let port: u16 = 443;
+    let port: u16 = req.port.and_then(|p| p.parse::<u16>().ok()).unwrap_or(443);
 
     let s3_key = match s3_screenshot::upload(&state.s3, &req.target, port, &image_bytes).await {
         Ok(key) => key,

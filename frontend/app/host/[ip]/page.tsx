@@ -73,6 +73,14 @@ interface SslCert {
   scan_uid?: string;
 }
 
+interface FuzzEntry {
+  port: number;
+  path: string;
+  url: string;
+  http_status: number;
+  scanned_at: string;
+}
+
 interface ScanCluster {
   scan_uid: string;
   centerTime: number;
@@ -129,8 +137,15 @@ function ScreenshotImage({ ip, port }: { ip: string; port: number }) {
 function formatDate(d: string | number): string {
   if (!d) return "—";
   try {
-    const date = typeof d === "number" ? new Date(d) : new Date(d);
-    return date.toLocaleString("ru-RU", {
+    let ts: number;
+    if (typeof d === "number") {
+      ts = d;
+    } else {
+      const iso = d.replace(" ", "T") + "+03:00";
+      ts = new Date(iso).getTime();
+    }
+    if (isNaN(ts)) return String(d);
+    return new Intl.DateTimeFormat("ru-RU", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -138,7 +153,8 @@ function formatDate(d: string | number): string {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-    });
+      timeZone: "Europe/Moscow",
+    }).format(new Date(ts));
   } catch {
     return String(d);
   }
@@ -147,7 +163,10 @@ function formatDate(d: string | number): string {
 function formatRelative(d: string | number): string {
   if (!d) return "";
   try {
-    const ts = typeof d === "number" ? d : new Date(d).getTime();
+    const ts = typeof d === "number" ? d : (() => {
+      const iso = (d as string).replace(" ", "T") + "+03:00";
+      return new Date(iso).getTime();
+    })();
     const diff = Date.now() - ts;
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
@@ -240,6 +259,8 @@ function PortRow({
   screenshot?: ScreenshotEntry;
   ip: string;
 }) {
+  const [showScreenshot, setShowScreenshot] = useState(false);
+
   const stateColor =
     port.state === "open"
       ? "#5fed83"
@@ -267,7 +288,7 @@ function PortRow({
       <details style={{ padding: 0 }}>
         <summary
           className="port-summary"
-          style={{ cursor: hasDetails ? "pointer" : "default" }}
+          style={{ cursor: hasDetails || screenshot ? "pointer" : "default" }}
         >
           <div
             className="port-status-dot"
@@ -301,15 +322,15 @@ function PortRow({
               </span>
             )}
           </div>
-          {hasDetails && (
+          {(hasDetails || screenshot) && (
             <>
               <span className="port-expand-icon">▶</span>
               <span className="port-expand-icon-open">▼</span>
             </>
           )}
         </summary>
-        {hasDetails && (
-          <div className="port-details">
+        <div className="port-details">
+          {hasDetails && (
             <table className="detail-table">
               <tbody>
                 {port.service && (
@@ -406,24 +427,35 @@ function PortRow({
                 </tr>
               </tbody>
             </table>
-          </div>
-        )}
-      </details>
-      {screenshot && (
-        <div className="screenshot-card-port">
-          <div className="screenshot-header-port">
-            <span className="screenshot-header-label">
-              Screenshot — Port {screenshot.port}
-            </span>
-            <span className="screenshot-header-size">
-              {screenshot.file_size
-                ? `${(screenshot.file_size / 1024).toFixed(1)} KB`
-                : ""}
-            </span>
-          </div>
-          <ScreenshotImage ip={ip} port={screenshot.port} />
+          )}
+          {screenshot && (
+            <div style={{ marginTop: hasDetails ? 12 : 0 }}>
+              <button
+                className="secondary-btn"
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+                onClick={() => setShowScreenshot((v) => !v)}
+              >
+                {showScreenshot ? "▼" : "▶"} Screenshot
+                {screenshot.file_size
+                  ? ` (${(screenshot.file_size / 1024).toFixed(1)} KB)`
+                  : ""}
+              </button>
+              {showScreenshot && (
+                <div style={{ marginTop: 10 }}>
+                  <ScreenshotImage ip={ip} port={screenshot.port} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </details>
     </div>
   );
 }
@@ -857,6 +889,7 @@ export default function HostDetailPage() {
 
   const [clusters, setClusters] = useState<ScanCluster[]>([]);
   const [dns, setDns] = useState<DnsRecord | null>(null);
+  const [fuzzing, setFuzzing] = useState<FuzzEntry[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -885,11 +918,13 @@ export default function HostDetailPage() {
           json.screenshots || json.data?.screenshots || [];
         const sslData: SslCert[] = json.ssl || json.data?.ssl || [];
         const dnsData: DnsRecord | null = json.dns || json.data?.dns || null;
+        const fuzzingData: FuzzEntry[] = json.fuzzing || json.data?.fuzzing || [];
 
         setClusters(
           clusterEvents(nmapData, whatwebData, screenshotsData, sslData),
         );
         setDns(dnsData);
+        setFuzzing(fuzzingData);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -944,6 +979,15 @@ export default function HostDetailPage() {
   const allTechs: string[] = Array.from(
     new Set<string>(current.whatweb.flatMap((w) => w.technologies || [])),
   );
+  const dnsRecordCount = dns
+    ? (dns.a?.length || 0) +
+      (dns.aaaa?.length || 0) +
+      (dns.cname?.length || 0) +
+      (dns.mx?.length || 0) +
+      (dns.ns?.length || 0) +
+      (dns.txt?.length || 0) +
+      (dns.ptr?.length || 0)
+    : 0;
   const openPorts = current.nmap.filter((r) => r.state === "open");
   const filteredPorts = current.nmap.filter((r) => r.state === "filtered");
   const closedPorts = current.nmap.filter((r) => r.state === "closed");
@@ -967,6 +1011,7 @@ export default function HostDetailPage() {
     { id: "overview", label: "Overview", icon: "overview" },
     { id: "ports", label: "Ports", icon: "ports" },
     { id: "web", label: "Web Services", icon: "web" },
+    { id: "fuzzing", label: "Fuzzing", icon: "web" },
     { id: "ssl", label: "SSL/TLS", icon: "ssl" },
     { id: "dns", label: "DNS", icon: "dns" },
   ];
@@ -1187,9 +1232,9 @@ export default function HostDetailPage() {
                   </div>
                   <div className="metric">
                     <div className="metric-value" style={{ color: "#8c93fb" }}>
-                      {allServices.length || displayPorts.length}
+                      {current.whatweb.length}
                     </div>
-                    <div className="metric-label">Services</div>
+                    <div className="metric-label">Web Services</div>
                   </div>
                   <div className="metric">
                     <div className="metric-value" style={{ color: "#8dd6ff" }}>
@@ -1198,7 +1243,25 @@ export default function HostDetailPage() {
                     <div className="metric-label">Technologies</div>
                   </div>
                   <div className="metric">
+                    <div className="metric-value" style={{ color: "#f97316" }}>
+                      {current.ssl.length}
+                    </div>
+                    <div className="metric-label">SSL/TLS</div>
+                  </div>
+                  <div className="metric">
                     <div className="metric-value" style={{ color: "#a78bfa" }}>
+                      {dnsRecordCount}
+                    </div>
+                    <div className="metric-label">DNS Records</div>
+                  </div>
+                  <div className="metric">
+                    <div className="metric-value" style={{ color: "#f0c000" }}>
+                      {fuzzing.length}
+                    </div>
+                    <div className="metric-label">Discovered Paths</div>
+                  </div>
+                  <div className="metric">
+                    <div className="metric-value" style={{ color: "#818b98" }}>
                       {clusters.length}
                     </div>
                     <div className="metric-label">Scans</div>
@@ -1224,6 +1287,19 @@ export default function HostDetailPage() {
                   </div>
                 </div>
               </div>
+
+              {allTechs.length > 0 && (
+                <div className="card-panel" style={{ padding: "16px 20px", marginTop: 20 }}>
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#818b98", marginBottom: 12, fontWeight: 700 }}>
+                    Technology Stack
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {allTechs.map((t) => (
+                      <span key={t} className="tech-badge">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1264,6 +1340,44 @@ export default function HostDetailPage() {
           {activeSection === "ssl" && (
             <div className="animate-fade-in">
               <SslCertificatesCard certs={current.ssl} />
+            </div>
+          )}
+
+          {activeSection === "fuzzing" && (
+            <div className="animate-fade-in">
+              <h2 className="section-heading">Discovered Paths</h2>
+              {fuzzing.length === 0 ? (
+                <p style={{ color: "#818b98", fontSize: 13, padding: 20 }}>
+                  No paths discovered by fuzzing.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {fuzzing.map((f, i) => (
+                    <div key={i} className="card-panel" style={{ padding: "12px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span className="badge" style={{ background: "#5fed8320", color: "#5fed83", minWidth: 40, textAlign: "center" }}>
+                          {f.http_status}
+                        </span>
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, color: "#8dd6ff" }}>
+                          {f.port}
+                        </span>
+                        <code style={{ fontSize: 13, color: "#e4e7eb", wordBreak: "break-all" }}>
+                          {f.path}
+                        </code>
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="external-link"
+                          style={{ marginLeft: "auto", fontSize: 11, color: "#818b98", textDecoration: "underline" }}
+                        >
+                          open ↗
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

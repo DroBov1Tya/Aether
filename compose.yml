@@ -51,32 +51,32 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_SERVER_URL: "http://minio:9000"
     volumes:
       - miniodata:/data
     healthcheck:
-      test: curl -f http://localhost:9000/minio/health/live
-      interval: 3s
-      timeout: 3s
-      retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - Aether
 
-  minio-init:
-    image: minio/mc:latest
-    container_name: aether-minio-init
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do echo 'waiting for minio...'; sleep 2; done;
-      mc mb myminio/${S3_BUCKET} --ignore-existing;
-      echo 'bucket ${S3_BUCKET} ready';
-      "
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      S3_BUCKET: ${S3_BUCKET}
+  create-bucket:
+    image: minio/mc
     depends_on:
       minio:
-        condition: service_started
+        condition: service_healthy
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set myminio http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD); do sleep 3; done;
+      /usr/bin/mc mb myminio/${S3_BUCKET} || echo 'Bucket already exists';
+      exit 0;
+      "
     networks:
       - Aether
 
@@ -95,7 +95,7 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      minio-init:
+      create-bucket:
         condition: service_completed_successfully
     environment:
       RUST_LOG: ${RUST_LOG}
@@ -137,41 +137,9 @@ services:
     networks:
       - Aether
 
-  agent:
-    hostname: agent
-    container_name: aether-agent
-    build:
-      context: ./agent
-    privileged: true
-    security_opt:
-      - seccomp=unconfined
-    ports:
-      - "8020:8020"
-    shm_size: "256mb"
-    restart: always
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    depends_on:
-      backend:
-        condition: service_started
-    environment:
-      RUST_LOG: ${RUST_LOG:-info}
-      TZ: ${TZ:-UTC}
-      SERVER_PATH: 0.0.0.0:8020
-      EXTERNAL_SERVER_PATH: http://backend:8080
-      SCANS_OUTPUT_PATH: /data/scans
-      HXN_DELAY: ${HXN_DELAY:-5}
-      IMAGE_OUTPUT_PATH: /data/images
-      API_KEY: ${API_KEY}
-      AGENT_ADDRESS: agent
-    volumes:
-      - ./agent/screenshots:/app/screenshots
-    networks:
-      - Aether
-
 networks:
   Aether:
+    driver: bridge
 
 volumes:
   chdata:

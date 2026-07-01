@@ -23,7 +23,11 @@ pub async fn insert(client: &Client, row: DnsRow) -> Result<()> {
     Ok(())
 }
 
-pub fn from_json(scan_uid: &str, country: Option<String>, item: &serde_json::Value) -> Option<DnsRow> {
+pub fn from_json(
+    scan_uid: &str,
+    country: Option<String>,
+    item: &serde_json::Value,
+) -> Option<DnsRow> {
     Some(DnsRow {
         target: item.get("target")?.as_str()?.to_string(),
         scan_uid: scan_uid.to_string(),
