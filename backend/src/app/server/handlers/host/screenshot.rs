@@ -21,7 +21,11 @@ pub async fn get_screenshot(
         }
     };
 
-    match state.s3.get_object(&s3_key).await {
+    let Some(ref s3) = state.s3 else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "S3 storage unavailable").into_response();
+    };
+
+    match s3.get_object(&s3_key).await {
         Ok(response_data) => {
             let status = response_data.status_code();
             if status != 200 {

@@ -11,18 +11,19 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
+    musl-tools \
     gcc-aarch64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rustup target add x86_64-unknown-linux-gnu && \
-    rustup target add aarch64-unknown-linux-gnu
+RUN rustup target add x86_64-unknown-linux-musl && \
+    rustup target add aarch64-unknown-linux-musl
 
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 RUN case "$TARGETPLATFORM" in \
-    "linux/amd64") echo "x86_64-unknown-linux-gnu" > /tmp/rust-target ;; \
-    "linux/arm64") echo "aarch64-unknown-linux-gnu" > /tmp/rust-target ;; \
+    "linux/amd64") echo "x86_64-unknown-linux-musl" > /tmp/rust-target ;; \
+    "linux/arm64") echo "aarch64-unknown-linux-musl" > /tmp/rust-target ;; \
     *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
     esac
 
@@ -48,9 +49,9 @@ ARG PROJECT_NAME
 ARG BINARY_NAME
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y ca-certificates tzdata && \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates tzdata && \
     rm -rf /var/lib/apt/lists/* && \
-    useradd -m -u 1000 appuser && \
+    id -u appuser >/dev/null 2>&1 || useradd -m appuser && \
     chown -R appuser:appuser /app
 
 COPY --from=builder --chown=appuser:appuser /output/app /app/app

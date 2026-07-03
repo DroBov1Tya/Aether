@@ -17,6 +17,7 @@ pub async fn search_image(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
+    let total = search::count_search_by_image(&state.ch, &params.q).await.unwrap_or(0);
     let rows = match search::search_by_image(&state.ch, &params.q, params.per_page, params.offset())
         .await
     {
@@ -34,12 +35,15 @@ pub async fn search_image(
     for row in rows {
         let s3_key = row["s3_key"].as_str().unwrap_or_default().to_string();
         let image = if !s3_key.is_empty() {
-            match s3_download::get_object(&state.s3, &s3_key).await {
-                Ok(bytes) => Some(STANDARD.encode(&bytes)),
-                Err(e) => {
-                    tracing::warn!("search_image s3 download failed: {e}");
-                    None
-                }
+            match &state.s3 {
+                Some(s3) => match s3_download::get_object(s3, &s3_key).await {
+                    Ok(data) => Some(STANDARD.encode(&data)),
+                    Err(e) => {
+                        tracing::warn!("search_image s3 download failed: {e}");
+                        None
+                    }
+                },
+                None => None,
             }
         } else {
             None
@@ -56,7 +60,7 @@ pub async fn search_image(
     (
         StatusCode::OK,
         Json(
-            json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+            json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "total": total, "data": data }),
         ),
     )
 }

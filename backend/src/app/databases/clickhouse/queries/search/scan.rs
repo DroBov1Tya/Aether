@@ -368,15 +368,16 @@ pub async fn search_aggregated(
     let pattern = format!("%{}%", q);
     let sql = r#"
         WITH targets AS (
-            SELECT target FROM scan_results_nmap
-            WHERE ilike(target, ?) OR ilike(service, ?) OR ilike(product, ?)
-            UNION ALL
-            SELECT target FROM scan_results_whatweb
-            WHERE ilike(target, ?) OR ilike(title, ?) OR has(technologies, ?)
-            UNION ALL
-            SELECT target FROM scan_results_rustscan
-            WHERE ilike(target, ?)
-            GROUP BY target
+            SELECT DISTINCT target FROM (
+                SELECT target FROM scan_results_nmap
+                WHERE ilike(target, ?) OR ilike(service, ?) OR ilike(product, ?)
+                UNION ALL
+                SELECT target FROM scan_results_whatweb
+                WHERE ilike(target, ?) OR ilike(title, ?) OR has(technologies, ?)
+                UNION ALL
+                SELECT target FROM scan_results_rustscan
+                WHERE ilike(target, ?)
+            )
         ),
         nmap_agg AS (
             SELECT target, groupArray(port) AS ports,
@@ -437,7 +438,7 @@ pub async fn search_aggregated(
         .query(sql)
         .bind(&pattern)
         .bind(&pattern)
-        .bind(&pattern)
+         .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
         .bind(q)
@@ -451,4 +452,206 @@ pub async fn search_aggregated(
         .context("Failed to collect ClickHouse response")?;
 
     parse_json_each_row(&bytes)
+}
+
+pub async fn count_search_by_ip(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT port FROM scan_results_nmap
+            WHERE target = ?
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY port
+        )
+    "#;
+    let bytes = client.query(sql).bind(&pattern).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_domain(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let lower_q = q.to_lowercase();
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT 1 AS src FROM scan_results_whatweb
+            WHERE ilike(target, ?) OR ilike(url, ?)
+            UNION ALL
+            SELECT 1 AS src FROM scan_results_ssl
+            WHERE ilike(host, ?)
+               OR position(lower(subject), ?) > 0
+               OR arrayExists(x -> position(lower(x), ?) > 0, san)
+            UNION ALL
+            SELECT 1 AS src FROM scan_results_dns
+            WHERE ilike(target, ?)
+               OR arrayExists(x -> ilike(x, ?), a)
+               OR arrayExists(x -> ilike(x, ?), cname)
+               OR arrayExists(x -> ilike(x, ?), mx)
+               OR arrayExists(x -> ilike(x, ?), ns)
+               OR arrayExists(x -> ilike(x, ?), ptr)
+        )
+    "#;
+    let bytes = client.query(sql)
+        .bind(&pattern).bind(&pattern)
+        .bind(&pattern).bind(&lower_q).bind(&lower_q)
+        .bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern)
+        .fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_port(client: &Client, q: u16) -> Result<u64> {
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target FROM scan_results_nmap
+            WHERE port = ?
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target
+        )
+    "#;
+    let bytes = client.query(sql).bind(q).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_title(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target, port FROM scan_results_whatweb
+            WHERE ilike(title, ?)
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target, port
+        )
+    "#;
+    let bytes = client.query(sql).bind(&pattern).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_technology(client: &Client, q: &str) -> Result<u64> {
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target, port FROM scan_results_whatweb
+            WHERE has(technologies, ?)
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target, port
+        )
+    "#;
+    let bytes = client.query(sql).bind(q).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_protocol(client: &Client, q: &str) -> Result<u64> {
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target, port FROM scan_results_nmap
+            WHERE protocol = ?
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target, port
+        )
+    "#;
+    let bytes = client.query(sql).bind(q).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_service(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target, port FROM scan_results_nmap
+            WHERE ilike(service, ?)
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target, port
+        )
+    "#;
+    let bytes = client.query(sql).bind(&pattern).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_image(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = "SELECT count(*) AS cnt FROM scan_screenshots WHERE ilike(target, ?)";
+    let bytes = client.query(sql).bind(&pattern).fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_dns(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT target FROM scan_results_dns
+            WHERE ilike(target, ?)
+               OR arrayExists(x -> ilike(x, ?), a)
+               OR arrayExists(x -> ilike(x, ?), aaaa)
+               OR arrayExists(x -> ilike(x, ?), cname)
+               OR arrayExists(x -> ilike(x, ?), mx)
+               OR arrayExists(x -> ilike(x, ?), ns)
+               OR arrayExists(x -> ilike(x, ?), txt)
+               OR arrayExists(x -> ilike(x, ?), ptr)
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY target
+        )
+    "#;
+    let bytes = client.query(sql)
+        .bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern)
+        .bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern)
+        .fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_by_ssl(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let lower_q = q.to_lowercase();
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT host, port FROM scan_results_ssl
+            WHERE ilike(host, ?)
+               OR ilike(subject, ?)
+               OR ilike(issuer, ?)
+               OR ilike(serial, ?)
+               OR arrayExists(x -> ilike(x, ?), san)
+               OR position(lower(subject), ?) > 0
+               OR position(lower(issuer), ?) > 0
+               OR arrayExists(x -> position(lower(x), ?) > 0, san)
+            ORDER BY scanned_at DESC
+            LIMIT 1 BY host, port
+        )
+    "#;
+    let bytes = client.query(sql)
+        .bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern).bind(&pattern)
+        .bind(&lower_q).bind(&lower_q).bind(&lower_q)
+        .fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
+}
+
+pub async fn count_search_aggregated(client: &Client, q: &str) -> Result<u64> {
+    let pattern = format!("%{}%", q);
+    let sql = r#"
+        SELECT count(*) AS cnt FROM (
+            SELECT DISTINCT target FROM (
+                SELECT target FROM scan_results_nmap
+                WHERE ilike(target, ?) OR ilike(service, ?) OR ilike(product, ?)
+                UNION ALL
+                SELECT target FROM scan_results_whatweb
+                WHERE ilike(target, ?) OR ilike(title, ?) OR has(technologies, ?)
+                UNION ALL
+                SELECT target FROM scan_results_rustscan
+                WHERE ilike(target, ?)
+            )
+        )
+    "#;
+    let bytes = client.query(sql)
+        .bind(&pattern).bind(&pattern).bind(&pattern)
+        .bind(&pattern).bind(&pattern).bind(q)
+        .bind(&pattern)
+        .fetch_bytes("JSONEachRow")?.collect().await?;
+    let rows = parse_json_each_row(&bytes)?;
+    Ok(rows.first().and_then(|r| r["cnt"].as_u64()).unwrap_or(0))
 }

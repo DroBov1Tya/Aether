@@ -5,12 +5,10 @@ use axum::{
 };
 use serde_json::json;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use super::common::CheckoutReq;
 use crate::app::AppState;
 use crate::app::databases::clickhouse::queries::insert_ssl;
-use crate::app::databases::redis::tasks;
 
 pub async fn save_data(
     State(state): State<Arc<AppState>>,
@@ -33,16 +31,6 @@ pub async fn save_data(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "status": "error", "error": e.to_string() })),
         );
-    }
-
-    if let Some(task_uid) = &req.task_uid {
-        if let Ok(uid) = Uuid::parse_str(task_uid) {
-            let mut con = state.redis.clone();
-            tasks::update_field(&mut con, uid, "ssl", true).await;
-            if tasks::is_all_done(&mut con, uid).await {
-                tasks::cleanup(&mut con, uid).await;
-            }
-        }
     }
 
     tracing::info!("ssl  {}  saved", req.target);

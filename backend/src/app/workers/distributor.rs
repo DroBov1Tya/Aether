@@ -1,14 +1,35 @@
-use std::time::Duration;
+use std::sync::OnceLock;
 
 use clickhouse::Client as ChClient;
-use redis::aio::ConnectionManager;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::app::databases::clickhouse::queries::agents;
-use crate::app::databases::redis::tasks;
 
-const BATCH_SIZE: isize = 10;
-const MAX_TARGETS_PER_AGENT: u32 = 10;
+static TARGET_TX: OnceLock<mpsc::UnboundedSender<Vec<String>>> = OnceLock::new();
+
+pub fn get_target_tx() -> Option<mpsc::UnboundedSender<Vec<String>>> {
+    TARGET_TX.get().cloned()
+}
+
+pub async fn run(ch: ChClient, api_key: String) {
+    let (tx, mut rx) = mpsc::unbounded_channel::<Vec<String>>();
+    let _ = TARGET_TX.set(tx);
+
+    while let Some(targets) = rx.recv().await {
+        let agent = match pick_agent(&ch).await {
+            Some(a) => a,
+            None => {
+                tracing::warn!("no agent available for {} targets, skipping", targets.len());
+                continue;
+            }
+        };
+
+        tracing::info!("distributor: {} targets -> agent {}:{}", targets.len(), agent.ip, agent.port);
+
+        push_targets(&targets, &agent.ip, agent.port, &api_key).await;
+    }
+}
 
 struct AgentSelection {
     pub id: Uuid,
@@ -16,111 +37,60 @@ struct AgentSelection {
     pub port: i32,
 }
 
-async fn pick_agent(
-    ch: &ChClient,
-    conn: &mut ConnectionManager,
-    task_target_count: u32,
-) -> Option<AgentSelection> {
+async fn pick_agent(ch: &ChClient) -> Option<AgentSelection> {
     let agents_list = match agents::list_active(ch).await {
-        Ok(a) => a,
-        Err(_) => return None,
+        Ok(a) if !a.is_empty() => a,
+        _ => return None,
     };
-    if agents_list.is_empty() {
-        return None;
-    }
 
-    let mut best: Option<(&agents::AgentInfo, u32)> = None;
-    for agent in &agents_list {
-        let id = match Uuid::parse_str(&agent.id) {
-            Ok(id) => id,
-            Err(_) => continue,
-        };
-        let task_count = tasks::count_agent_tasks(conn, id).await;
-        if task_count as i32 >= agent.max_concurrent_tasks {
-            continue;
-        }
-        let target_count = tasks::count_agent_targets(conn, id).await;
-        if target_count + task_target_count > MAX_TARGETS_PER_AGENT {
-            continue;
-        }
-        match best {
-            Some((_, best_count)) if task_count >= best_count => {}
-            _ => best = Some((agent, task_count)),
-        }
-    }
-
-    best.map(|(a, _)| {
-        let id = Uuid::parse_str(&a.id).unwrap();
-        AgentSelection {
-            id,
-            ip: a.ip.clone(),
-            port: a.port,
-        }
+    agents_list.into_iter().next().map(|a| {
+        let id = Uuid::parse_str(&a.id).unwrap_or_default();
+        AgentSelection { id, ip: a.ip, port: a.port }
     })
 }
 
-pub async fn run(ch: ChClient, mut redis: ConnectionManager, api_key: String) {
-    let mut interval = tokio::time::interval(Duration::from_secs(2));
-    interval.tick().await;
+async fn push_targets(targets: &[String], agent_ip: &str, agent_port: i32, api_key: &str) {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_default();
 
-    loop {
-        interval.tick().await;
+    let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(10));
+    let api_key = std::sync::Arc::new(api_key.to_string());
+    let agent_url = std::sync::Arc::new(format!("http://{}:{}/api/scan", agent_ip, agent_port));
+    let mut handles = Vec::new();
 
-        let task_id_str = match tasks::pop_pending(&mut redis).await {
-            Some(id) => id,
-            None => continue,
-        };
+    for ip in targets {
+        let permit = sem.clone().acquire_owned().await.expect("semaphore");
+        let client = client.clone();
+        let api_key = std::sync::Arc::clone(&api_key);
+        let msg = serde_json::json!({"target": ip, "task_uid": ""});
+        let url = agent_url.to_string();
+        let ip = ip.clone();
 
-        let task_id = match Uuid::parse_str(&task_id_str) {
-            Ok(id) => id,
-            Err(_) => continue,
-        };
-
-        let target_count = tasks::get_target_count(&mut redis, &task_id_str).await;
-
-        let agent = match pick_agent(&ch, &mut redis, target_count).await {
-            Some(a) => a,
-            None => {
-                tracing::warn!(
-                    "no agent available for task {} ({} targets), re-queuing",
-                    task_id,
-                    target_count
-                );
-                tasks::mark_pending(&mut redis, &task_id_str).await;
-                continue;
+        handles.push(tokio::spawn(async move {
+            let result = client
+                .post(&url)
+                .header("X-API-KEY", api_key.as_str())
+                .json(&msg)
+                .send()
+                .await;
+            match result {
+                Ok(resp) if resp.status().is_success() => {
+                    tracing::info!("pushed {} to agent", ip);
+                }
+                Ok(resp) => {
+                    tracing::warn!("agent {} rejected {}: {}", url, ip, resp.status());
+                }
+                Err(e) => {
+                    tracing::error!("failed to push {}: {}", ip, e);
+                }
             }
-        };
+            drop(permit);
+        }));
+    }
 
-        tasks::assign(&mut redis, task_id, agent.id, target_count).await;
-        tracing::info!(
-            "distributor: task {} -> agent {}:{}",
-            task_id,
-            agent.ip,
-            agent.port
-        );
-
-        let mut offset: isize = 0;
-        loop {
-            let targets = tasks::get_targets(&mut redis, &task_id_str, offset, BATCH_SIZE).await;
-            if targets.is_empty() {
-                break;
-            }
-
-            tasks::push_targets(
-                &mut redis, task_id, &targets, &agent.ip, agent.port, &api_key,
-            )
-            .await;
-
-            tracing::info!(
-                "distributor: task {} pushed {}-{} / pushed to agent",
-                task_id,
-                offset,
-                offset + targets.len() as isize
-            );
-
-            offset += targets.len() as isize;
-        }
-
-        tracing::info!("distributor: task {} fully distributed", task_id);
+    for h in handles {
+        let _ = h.await;
     }
 }

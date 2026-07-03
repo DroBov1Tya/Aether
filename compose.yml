@@ -22,23 +22,6 @@ services:
     networks:
       - Aether
 
-  redis:
-    image: redis:7-alpine
-    hostname: redis
-    container_name: aether-redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: redis-cli ping
-      interval: 3s
-      timeout: 3s
-      retries: 10
-    networks:
-      - Aether
-
   minio:
     image: minio/minio:latest
     hostname: minio
@@ -71,11 +54,15 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=${S3_BUCKET}
     entrypoint: >
       /bin/sh -c "
       until (/usr/bin/mc alias set myminio http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD); do sleep 3; done;
       /usr/bin/mc mb myminio/${S3_BUCKET} || echo 'Bucket already exists';
-      exit 0;
+      /usr/bin/mc admin user add myminio $S3_ACCESS_KEY $S3_SECRET_KEY 2>/dev/null || echo 'User already exists';
+      /usr/bin/mc admin policy attach myminio readwrite --user $S3_ACCESS_KEY 2>/dev/null || echo 'Policy already attached';
       "
     networks:
       - Aether
@@ -90,8 +77,6 @@ services:
     restart: always
     depends_on:
       clickhouse:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -108,7 +93,6 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
-      REDIS_URL: ${REDIS_URL}
       API_KEY: ${API_KEY}
     networks:
       - Aether
@@ -143,5 +127,4 @@ networks:
 
 volumes:
   chdata:
-  redisdata:
   miniodata:

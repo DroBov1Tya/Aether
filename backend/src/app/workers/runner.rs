@@ -1,10 +1,8 @@
 use anyhow::Result;
 use clickhouse::Client as ChClient;
-use redis::aio::ConnectionManager;
 use uuid::Uuid;
 
 use super::controller;
-use crate::app::databases::redis::tasks;
 
 pub struct PipelineTask {
     pub task_id: Uuid,
@@ -17,32 +15,20 @@ pub struct PipelineTask {
 
 const TARGETS_PER_TASK: usize = 10;
 
-async fn create_subtask(conn: &mut ConnectionManager, targets: &[String]) {
-    let subtask_id = Uuid::new_v4();
-    tasks::init(conn, subtask_id).await;
-    tasks::add_targets(conn, subtask_id, targets).await;
-    tasks::mark_pending(conn, &subtask_id.to_string()).await;
-    tracing::info!(
-        "subtask {} created with {} targets",
-        subtask_id,
-        targets.len()
-    );
-}
-
-async fn drain_buffer(conn: &mut ConnectionManager, buf: &mut Vec<String>, total: &mut u64) {
+async fn drain_buffer(buf: &mut Vec<String>, total: &mut u64) {
     if buf.is_empty() {
         return;
     }
-    create_subtask(conn, buf).await;
+    let chunk: Vec<String> = buf.drain(..).collect();
+    if let Some(tx) = crate::app::workers::distributor::get_target_tx() {
+        let _ = tx.send(chunk);
+    }
     *total += buf.len() as u64;
-    buf.clear();
 }
 
 pub async fn run_pipeline(
     task: PipelineTask,
     _ch: &ChClient,
-    conn: &mut ConnectionManager,
-    _api_key: &str,
 ) -> Result<()> {
     let cidrs = task.cidrs.as_deref().unwrap_or(&[]);
     let ranges = task.ranges.as_deref().unwrap_or(&[]);
@@ -57,10 +43,10 @@ pub async fn run_pipeline(
             for n in start..=end {
                 buf.push(controller::u32_to_ipv4(n).to_string());
                 if buf.len() >= TARGETS_PER_TASK {
-                    drain_buffer(conn, &mut buf, &mut total).await;
+                    drain_buffer(&mut buf, &mut total).await;
                 }
             }
-            drain_buffer(conn, &mut buf, &mut total).await;
+            drain_buffer(&mut buf, &mut total).await;
         }
     }
 
@@ -69,10 +55,10 @@ pub async fn run_pipeline(
             for n in start..=end {
                 buf.push(controller::u32_to_ipv4(n).to_string());
                 if buf.len() >= TARGETS_PER_TASK {
-                    drain_buffer(conn, &mut buf, &mut total).await;
+                    drain_buffer(&mut buf, &mut total).await;
                 }
             }
-            drain_buffer(conn, &mut buf, &mut total).await;
+            drain_buffer(&mut buf, &mut total).await;
         }
     }
 
@@ -80,22 +66,16 @@ pub async fn run_pipeline(
         if ip.parse::<std::net::Ipv4Addr>().is_ok() {
             buf.push(ip.clone());
             if buf.len() >= TARGETS_PER_TASK {
-                drain_buffer(conn, &mut buf, &mut total).await;
+                drain_buffer(&mut buf, &mut total).await;
             }
         }
     }
-    drain_buffer(conn, &mut buf, &mut total).await;
+    drain_buffer(&mut buf, &mut total).await;
 
     if !domains.is_empty() {
         for domain in domains {
             tracing::info!("task {} -> domain: {}", task.task_id, domain);
         }
-    }
-
-    if total == 0 {
-        let sid = Uuid::new_v4();
-        tasks::init(conn, sid).await;
-        tasks::mark_pending(conn, &sid.to_string()).await;
     }
 
     tracing::info!(

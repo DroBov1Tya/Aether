@@ -59,7 +59,7 @@ ARG BINARY_NAME
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates \
     tzdata \
     nmap \

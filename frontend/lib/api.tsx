@@ -151,6 +151,14 @@ export interface AggregatedHost {
   scan_uids: string[];
 }
 
+export interface SearchResponse<T> {
+  status: string;
+  page: number;
+  per_page: number;
+  total: number;
+  data: T[];
+}
+
 export interface ScreenshotWithMeta {
   target: string;
   port: number;
@@ -188,6 +196,19 @@ export interface HostSnapshot {
 export interface HostSnapshotsResponse {
   target: string;
   snapshots: HostSnapshot[];
+}
+
+async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  headers.set("Content-Type", "application/json");
+  if (IS_SERVER && API_KEY) headers.set("X-API-KEY", API_KEY);
+  const url = `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
+  const res = await fetch(url, { ...options, headers, cache: "no-store" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
 }
 
 export async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
@@ -242,42 +263,42 @@ export const getHostSnapshots = (ip: string) =>
     `/api/host/${encodeURIComponent(ip)}/snapshots`,
   );
 
-export const searchByIp = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByIp = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/ip?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByDomain = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByDomain = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/domain?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByPort = (q: number, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(`/api/search/port?q=${q}&page=${p}&per_page=${pp}`);
-export const searchByTitle = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByPort = (q: number, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(`/api/search/port?q=${q}&page=${p}&per_page=${pp}`);
+export const searchByTitle = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/title?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByTechnology = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByTechnology = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/technology?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByProtocol = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByProtocol = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/protocol?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByService = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByService = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/service?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchByDns = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchByDns = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/dns?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchBySsl = (q: string, p = 1, pp = 50) =>
-  fetchApi<SearchResult[]>(
+export const searchBySsl = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
     `/api/search/ssl?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
-export const searchAggregated = (q: string, p = 1, pp = 50) =>
-  fetchApi<AggregatedHost[]>(
+export const searchAggregated = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<AggregatedHost>>(
     `/api/search/aggregated?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
 export const listScreenshots = (p = 1, pp = 20) =>

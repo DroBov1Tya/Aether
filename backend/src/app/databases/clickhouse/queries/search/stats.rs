@@ -132,7 +132,13 @@ pub async fn top_technologies(client: &Client, limit: u32) -> Result<Vec<Value>>
 pub async fn summary_stats(client: &Client) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT
-            (SELECT uniqExact(target) FROM scan_results_nmap) AS total_hosts,
+            (SELECT uniqExact(target) FROM (
+                SELECT target FROM scan_results_nmap
+                UNION ALL
+                SELECT target FROM scan_results_rustscan
+                UNION ALL
+                SELECT target FROM scan_results_whatweb
+            )) AS total_hosts,
             (SELECT uniqExact(port) FROM scan_results_nmap) AS unique_ports,
             (SELECT uniqExact(service) FROM scan_results_nmap WHERE service != '') AS unique_services,
             (SELECT uniqExact(arrayJoin(technologies)) FROM scan_results_whatweb) AS unique_technologies,

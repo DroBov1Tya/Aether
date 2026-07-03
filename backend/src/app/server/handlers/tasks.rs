@@ -60,11 +60,9 @@ pub async fn create_task(
     };
 
     let ch = state.ch.clone();
-    let mut redis = state.redis.clone();
-    let api_key = state.cfg.api_key.to_string();
     tokio::spawn(async move {
         tracing::info!("task {} background start", id);
-        match workers::runner::run_pipeline(pipe, &ch, &mut redis, &api_key).await {
+        match workers::runner::run_pipeline(pipe, &ch).await {
             Ok(()) => tracing::info!("task {} background done", id),
             Err(e) => tracing::error!("task {} background error: {:?}", id, e),
         }

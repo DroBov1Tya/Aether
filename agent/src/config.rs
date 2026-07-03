@@ -44,7 +44,7 @@ pub fn env_or(key: &str, default: &str) -> String {
 impl Config {
     fn load() -> Self {
         // Load variables from .env file (only if present)
-        let _ = dotenv::dotenv();
+        let _ = dotenvy::dotenv();
 
         let proxies_str = std::env::var("PROXIES").unwrap_or_default();
         let proxies: Vec<String> = proxies_str

@@ -15,12 +15,13 @@ pub async fn search_technology(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
+    let total = search::count_search_by_technology(&state.ch, &params.q).await.unwrap_or(0);
     match search::search_by_technology(&state.ch, &params.q, params.per_page, params.offset()).await
     {
         Ok(data) => (
             StatusCode::OK,
             Json(
-                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "data": data }),
+                json!({ "status": "ok", "page": params.page, "per_page": params.per_page, "total": total, "data": data }),
             ),
         ),
         Err(e) => {

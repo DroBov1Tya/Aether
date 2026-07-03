@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [dependencies]
@@ -9,9 +9,8 @@ axum = "0.8.9"
 axum-listener = "0.3.0"
 base64 = "0.22.1"
 clickhouse = "0.15.1"
-dotenv = "0.15.0"
-rust-s3 = { version = "0.35.0", default-features = false, features = ["tokio-rustls-tls"] }
-redis = { version = "0.28.2", features = ["tokio-comp", "connection-manager"] }
+dotenvy = "0.15"
+rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls", "fail-on-err"] }
 reqwest = { version = "0.12.15", default-features = false, features = ["json", "socks", "rustls-tls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

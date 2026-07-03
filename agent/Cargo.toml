@@ -1,6 +1,6 @@
 [package]
 name = "agent"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [dependencies]
@@ -10,7 +10,7 @@ axum-listener = "0.3.0"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 colored = "3.1.1"
-dotenv = "0.15.0"
+dotenvy = "0.15"
 obfstr = "0.4.4"
 quick-xml = { version = "0.37", features = ["serialize"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "http2"] }

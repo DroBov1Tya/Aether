@@ -263,12 +263,7 @@ export default function ScansPage() {
   };
 
   return (
-    <div className="page-container">
-      <h1 className="page-title">SCAN MANAGER</h1>
-      <p style={{ color: "#818b98", marginBottom: 32 }}>
-        Configure and launch network reconnaissance scans
-      </p>
-
+    <div>
       {validationErrors.length > 0 && (
         <div
           className="card-panel"
