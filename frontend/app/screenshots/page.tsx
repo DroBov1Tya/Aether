@@ -30,7 +30,7 @@ function CopyButton({ text }: { text: string }) {
       background: "none", border: "1px solid var(--color-border-subtle)",
       borderRadius: 6, cursor: "pointer", padding: "6px 8px",
       display: "inline-flex", alignItems: "center", gap: 6,
-      color: copied ? "#5fed83" : "var(--color-text-muted)",
+      color: copied ? "#e8d5c0" : "var(--color-text-muted)",
       fontSize: 12, fontFamily: "var(--font-mono)",
       transition: "color 0.2s",
     }}>
@@ -130,7 +130,7 @@ function DetailModal({ s, onClose }: { s: ScreenshotWithMeta; onClose: () => voi
         <div style={{
           background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 16,
           fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 1.7,
-          color: "#f0f6fc", whiteSpace: "pre-wrap", position: "relative",
+          color: "#f3f0eb", whiteSpace: "pre-wrap", position: "relative",
         }}>
           <div style={{ position: "absolute", top: 12, right: 12 }}>
             <CopyButton text={md} />
@@ -145,8 +145,8 @@ function DetailModal({ s, onClose }: { s: ScreenshotWithMeta; onClose: () => voi
               if (!match) return <div key={i}>{line}</div>;
               return (
                 <div key={i} style={{ marginBottom: 4, display: "flex", gap: 8 }}>
-                  <span style={{ color: "#8c93fb", whiteSpace: "nowrap" }}>{match[1]}:</span>
-                  <span style={{ color: "#a4aea6" }}>{match[2]}</span>
+                  <span style={{ color: "#f1cfb4", whiteSpace: "nowrap" }}>{match[1]}:</span>
+                  <span style={{ color: "#9a938c" }}>{match[2]}</span>
                 </div>
               );
             }
@@ -207,7 +207,7 @@ export default function ScreenshotsPage() {
       <h1 className="page-title">SCREENSHOTS GALLERY</h1>
       <p style={{ color: "#818b98", marginBottom: 32 }}>
         Visual reconnaissance of discovered web services
-        {total > 0 && <span style={{ marginLeft: 8, color: "#a4aea6" }}>
+        {total > 0 && <span style={{ marginLeft: 8, color: "#9a938c" }}>
           — {total} total
         </span>}
       </p>
@@ -220,7 +220,7 @@ export default function ScreenshotsPage() {
               <circle cx="12" cy="13" r="4" />
             </svg>
           </div>
-          <p style={{ color: "#f0f6fc", marginBottom: 8 }}>No screenshots yet</p>
+          <p style={{ color: "#f3f0eb", marginBottom: 8 }}>No screenshots yet</p>
           <p style={{ color: "#818b98" }}>Screenshots will appear here after scans with HXN enabled</p>
         </div>
       )}
@@ -237,7 +237,7 @@ export default function ScreenshotsPage() {
               <div style={{
                 position: "absolute", top: 8, right: 8,
                 padding: "2px 8px", background: "rgba(0,0,0,0.6)",
-                borderRadius: 4, fontSize: 10, color: "#a4aea6",
+                borderRadius: 4, fontSize: 10, color: "#9a938c",
                 fontFamily: "JetBrains Mono, monospace",
               }}>
                 :{s.port}
@@ -246,7 +246,7 @@ export default function ScreenshotsPage() {
             <div style={{ padding: 12 }}>
               <div style={{
                 fontFamily: "JetBrains Mono, monospace", fontSize: 13,
-                color: "#f0f6fc", marginBottom: 4,
+                color: "#f3f0eb", marginBottom: 4,
               }}>
                 {s.target}
               </div>
@@ -257,15 +257,15 @@ export default function ScreenshotsPage() {
                 {s.http_status && (
                   <span style={{
                     padding: "1px 6px", borderRadius: 60, fontSize: 10,
-                    background: s.http_status < 300 ? "rgba(95,237,131,0.2)" : "rgba(240,192,0,0.2)",
-                    color: s.http_status < 300 ? "#5fed83" : "#f0c000",
+                    background: s.http_status < 300 ? "rgba(232,213,192,0.2)" : "rgba(240,192,0,0.2)",
+                    color: s.http_status < 300 ? "#e8d5c0" : "#f0c000",
                   }}>
                     {s.http_status}
                   </span>
                 )}
               </div>
               {s.title && (
-                <div style={{ fontSize: 11, color: "#a4aea6", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 11, color: "#9a938c", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.title}
                 </div>
               )}

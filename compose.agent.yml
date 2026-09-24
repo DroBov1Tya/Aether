@@ -1,0 +1,45 @@
+# ============================================================
+# Aether — agent-only stack (for remote/offsite scanning servers).
+#
+# Run this on a separate box that only runs agents pointing at a
+# central Aether backend. Copy .env.agent.example -> .env and set
+# EXTERNAL_SERVER_PATH to the backend's PUBLIC url + the shared API_KEY.
+#
+#   docker compose -f compose.agent.yml up -d --scale agent=4
+#
+# Scale to as many agents as the host can handle; they self-register
+# and only make outbound calls to the backend.
+# ============================================================
+services:
+  agent:
+    build:
+      context: ./agent
+    restart: always
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      TZ: ${TZ:-Europe/Moscow}
+      AGENT_PORT: ${AGENT_PORT:-8020}
+      # MUST point at the central backend's reachable address.
+      EXTERNAL_SERVER_PATH: ${EXTERNAL_SERVER_PATH}
+      API_KEY: ${API_KEY}
+      SCANS_OUTPUT_PATH: ${SCANS_OUTPUT_PATH:-scans_output}
+      MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS:-3}
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-10}
+      SCAN_COOLDOWN: ${SCAN_COOLDOWN:-60}
+      HXN_DELAY: ${HXN_DELAY:-5}
+      HTTPX_THREADS: ${HTTPX_THREADS:-50}
+      HTTPX_RATE_LIMIT: ${HTTPX_RATE_LIMIT:-150}
+      HTTPX_TIMEOUT: ${HTTPX_TIMEOUT:-10}
+      HTTPX_SCREENSHOTS: ${HTTPX_SCREENSHOTS:-true}
+      HTTPX_WEB_PORTS: ${HTTPX_WEB_PORTS:-80,443,8080,8443,8000,8888}
+      NUCLEI_ENABLED: ${NUCLEI_ENABLED:-true}
+      NUCLEI_SEVERITY: ${NUCLEI_SEVERITY:-critical,high,medium}
+      NUCLEI_TAGS: ${NUCLEI_TAGS:-}
+      NUCLEI_RATE_LIMIT: ${NUCLEI_RATE_LIMIT:-150}
+      NUCLEI_CONCURRENCY: ${NUCLEI_CONCURRENCY:-25}
+      NUCLEI_TIMEOUT: ${NUCLEI_TIMEOUT:-10}
+      TLSX_CONCURRENCY: ${TLSX_CONCURRENCY:-50}
+      TLSX_TIMEOUT: ${TLSX_TIMEOUT:-5}
+      DNSX_THREADS: ${DNSX_THREADS:-100}
+      GEO_ENABLED: ${GEO_ENABLED:-true}
+      PROXIES: ${PROXIES:-}

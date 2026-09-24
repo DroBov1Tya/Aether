@@ -1,23 +1,30 @@
 import { Suspense } from "react";
 import ScanForm from "./scan-form";
+import TaskList from "./task-list";
 
 export default function ScansPage() {
   return (
     <div className="page-container">
-      <h1 className="page-title">SCAN MANAGER</h1>
-      <p style={{ color: "#818b98", marginBottom: 32 }}>
-        Configure and launch network reconnaissance scans
-      </p>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Scan Manager</h1>
+          <p className="page-subtitle">
+            Configure and launch network reconnaissance scans
+          </p>
+        </div>
+      </div>
 
       <Suspense
         fallback={
-          <div style={{ textAlign: "center", padding: 40, color: "#818b98" }}>
+          <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-muted)" }}>
             Loading scan interface...
           </div>
         }
       >
         <ScanForm />
       </Suspense>
+
+      <TaskList />
     </div>
   );
 }

@@ -1,19 +1,22 @@
 [package]
 name = "backend"
-version = "0.2.1"
+version = "1.0.0"
 edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["macros"] }
 axum-listener = "0.3.0"
 base64 = "0.22.1"
-clickhouse = "0.15.1"
+chrono = { version = "0.4", features = ["serde"] }
+clickhouse = { version = "0.15.1", features = ["chrono"] }
 dotenvy = "0.15"
 rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls", "fail-on-err"] }
 reqwest = { version = "0.12.15", default-features = false, features = ["json", "socks", "rustls-tls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+sha2 = "0.10"
+subtle = "2.6"
 tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "ansi"] }

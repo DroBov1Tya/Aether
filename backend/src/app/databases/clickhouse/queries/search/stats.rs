@@ -72,7 +72,71 @@ pub async fn top_ports(client: &Client, limit: u32) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT port, uniqExact(target) AS count
         FROM scan_results_nmap
+        WHERE project = 'global'
         GROUP BY port
+        ORDER BY count DESC
+        LIMIT ?
+    "#;
+    let bytes = client
+        .query(sql)
+        .bind(limit)
+        .fetch_bytes("JSONEachRow")
+        .context("ClickHouse query failed")?
+        .collect()
+        .await
+        .context("Failed to collect ClickHouse response")?;
+
+    parse_json_each_row(&bytes)
+}
+
+pub async fn top_countries(client: &Client, limit: u32) -> Result<Vec<Value>> {
+    let sql = r#"
+        SELECT country, country_code, uniqExact(target) AS count
+        FROM host_geo FINAL
+        WHERE country != ''
+        GROUP BY country, country_code
+        ORDER BY count DESC
+        LIMIT ?
+    "#;
+    let bytes = client
+        .query(sql)
+        .bind(limit)
+        .fetch_bytes("JSONEachRow")
+        .context("ClickHouse query failed")?
+        .collect()
+        .await
+        .context("Failed to collect ClickHouse response")?;
+
+    parse_json_each_row(&bytes)
+}
+
+pub async fn top_asns(client: &Client, limit: u32) -> Result<Vec<Value>> {
+    let sql = r#"
+        SELECT asn, uniqExact(target) AS count
+        FROM host_geo FINAL
+        WHERE asn != ''
+        GROUP BY asn
+        ORDER BY count DESC
+        LIMIT ?
+    "#;
+    let bytes = client
+        .query(sql)
+        .bind(limit)
+        .fetch_bytes("JSONEachRow")
+        .context("ClickHouse query failed")?
+        .collect()
+        .await
+        .context("Failed to collect ClickHouse response")?;
+
+    parse_json_each_row(&bytes)
+}
+
+pub async fn top_orgs(client: &Client, limit: u32) -> Result<Vec<Value>> {
+    let sql = r#"
+        SELECT org, uniqExact(target) AS count
+        FROM host_geo FINAL
+        WHERE org != ''
+        GROUP BY org
         ORDER BY count DESC
         LIMIT ?
     "#;
@@ -92,7 +156,7 @@ pub async fn top_services(client: &Client, limit: u32) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT service, uniqExact(target) AS count
         FROM scan_results_nmap
-        WHERE service IS NOT NULL AND service != ''
+        WHERE service IS NOT NULL AND service != '' AND project = 'global'
         GROUP BY service
         ORDER BY count DESC
         LIMIT ?
@@ -113,6 +177,7 @@ pub async fn top_technologies(client: &Client, limit: u32) -> Result<Vec<Value>>
     let sql = r#"
         SELECT arrayJoin(technologies) AS technology, uniqExact(target) AS count
         FROM scan_results_whatweb
+        WHERE project = 'global'
         GROUP BY technology
         ORDER BY count DESC
         LIMIT ?
@@ -133,18 +198,18 @@ pub async fn summary_stats(client: &Client) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT
             (SELECT uniqExact(target) FROM (
-                SELECT target FROM scan_results_nmap
+                SELECT target FROM scan_results_nmap WHERE project = 'global'
                 UNION ALL
-                SELECT target FROM scan_results_rustscan
+                SELECT target FROM scan_results_rustscan WHERE project = 'global'
                 UNION ALL
-                SELECT target FROM scan_results_whatweb
+                SELECT target FROM scan_results_whatweb WHERE project = 'global'
             )) AS total_hosts,
-            (SELECT uniqExact(port) FROM scan_results_nmap) AS unique_ports,
-            (SELECT uniqExact(service) FROM scan_results_nmap WHERE service != '') AS unique_services,
-            (SELECT uniqExact(arrayJoin(technologies)) FROM scan_results_whatweb) AS unique_technologies,
-            (SELECT count() FROM scan_screenshots) AS total_screenshots,
-            (SELECT uniqExact(host) FROM scan_results_ssl) AS ssl_hosts,
-            (SELECT max(scanned_at) FROM scan_results_nmap) AS last_scan
+            (SELECT uniqExact(port) FROM scan_results_nmap WHERE project = 'global') AS unique_ports,
+            (SELECT uniqExact(service) FROM scan_results_nmap WHERE service != '' AND project = 'global') AS unique_services,
+            (SELECT uniqExact(arrayJoin(technologies)) FROM scan_results_whatweb WHERE project = 'global') AS unique_technologies,
+            (SELECT count() FROM scan_screenshots WHERE project = 'global') AS total_screenshots,
+            (SELECT uniqExact(host) FROM scan_results_ssl WHERE project = 'global') AS ssl_hosts,
+            (SELECT max(scanned_at) FROM scan_results_nmap WHERE project = 'global') AS last_scan
     "#;
     let bytes = client
         .query(sql)
@@ -161,6 +226,7 @@ pub async fn get_last_scans(client: &Client, limit: u32) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT target, port, url, http_status, title, technologies, scanned_at
         FROM scan_results_whatweb
+        WHERE project = 'global'
         ORDER BY scanned_at DESC
         LIMIT 1 BY target
         LIMIT ?

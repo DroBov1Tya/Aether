@@ -46,6 +46,7 @@ export interface SearchResult {
   http_status?: number;
   title?: string;
   technologies?: string[];
+  headers?: string;
   scanned_at: string;
 }
 
@@ -145,10 +146,34 @@ export interface AggregatedHost {
   titles: string[];
   url?: string;
   http_status?: number;
+  country?: string;
+  country_code?: string;
+  asn?: string;
+  org?: string;
   first_seen: string;
   last_seen: string;
   scan_count: number;
   scan_uids: string[];
+}
+
+export interface GeoInfo {
+  target: string;
+  country: string;
+  country_code: string;
+  city: string;
+  lat: number;
+  lon: number;
+  asn: string;
+  org: string;
+  isp: string;
+}
+
+export interface GeoStat {
+  country?: string;
+  country_code?: string;
+  asn?: string;
+  org?: string;
+  count: number;
 }
 
 export interface SearchResponse<T> {
@@ -241,6 +266,12 @@ export const getTopServices = (l = 10) =>
   fetchApi<ServiceStat[]>(`/api/stats/services?limit=${l}`);
 export const getTopTechnologies = (l = 20) =>
   fetchApi<TechStat[]>(`/api/stats/technologies?limit=${l}`);
+export const getTopCountries = (l = 15) =>
+  fetchApi<GeoStat[]>(`/api/stats/countries?limit=${l}`);
+export const getTopAsns = (l = 15) =>
+  fetchApi<GeoStat[]>(`/api/stats/asns?limit=${l}`);
+export const getTopOrgs = (l = 15) =>
+  fetchApi<GeoStat[]>(`/api/stats/orgs?limit=${l}`);
 export const getRecentScans = () =>
   fetchApi<HostSummary[]>("/api/getlast?limit=12");
 
@@ -276,6 +307,10 @@ export const searchByPort = (q: number, p = 1, pp = 20) =>
 export const searchByTitle = (q: string, p = 1, pp = 20) =>
   fetchJson<SearchResponse<SearchResult>>(
     `/api/search/title?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
+  );
+export const searchByHeader = (q: string, p = 1, pp = 20) =>
+  fetchJson<SearchResponse<SearchResult>>(
+    `/api/search/header?q=${encodeURIComponent(q)}&page=${p}&per_page=${pp}`,
   );
 export const searchByTechnology = (q: string, p = 1, pp = 20) =>
   fetchJson<SearchResponse<SearchResult>>(
@@ -315,4 +350,215 @@ export async function launchScan(payload: any) {
   });
   if (!res.ok) throw new Error(`Scan launch failed: ${res.status}`);
   return res.json();
+}
+
+// ---- Projects & import ----
+
+export interface ProjectSummary {
+  project: string;
+  hosts: number;
+  last_seen: string;
+}
+
+export interface ImportCounts {
+  hosts: number;
+  ports: number;
+  http: number;
+  tls: number;
+  dns: number;
+}
+
+export const listProjects = () =>
+  fetchApi<ProjectSummary[]>(`/api/projects`);
+
+export const getProjectHosts = (project: string) =>
+  fetchApi<AggregatedHost[]>(
+    `/api/projects/hosts?project=${encodeURIComponent(project)}`,
+  );
+
+/** Import a normalized JSON payload into a named project (client-side). */
+export async function importProject(payload: any) {
+  if (IS_SERVER) throw new Error("importProject can only be called from client");
+  const res = await fetch(`${API_BASE}/api/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json?.error || `Import failed: ${res.status}`);
+  }
+  return json;
+}
+
+// ---- Proxy pool ----
+
+export interface ProxyEntry {
+  url: string;
+  added_at: string;
+}
+
+export const listProxies = () => fetchApi<ProxyEntry[]>(`/api/proxies`);
+
+/** Add proxies (one per line in `raw`). Client-side only. */
+export async function addProxies(raw: string) {
+  if (IS_SERVER) throw new Error("addProxies can only be called from client");
+  const res = await fetch(`${API_BASE}/api/proxies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Add failed: ${res.status}`);
+  return json;
+}
+
+/** Remove a single proxy by exact URL. */
+export async function deleteProxy(url: string) {
+  if (IS_SERVER) throw new Error("deleteProxy can only be called from client");
+  const res = await fetch(`${API_BASE}/api/proxies/one`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json().catch(() => ({}));
+}
+
+/** Clear the entire proxy pool. */
+export async function deleteAllProxies() {
+  if (IS_SERVER) throw new Error("deleteAllProxies can only be called from client");
+  const res = await fetch(`${API_BASE}/api/proxies`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Clear failed: ${res.status}`);
+  return res.json().catch(() => ({}));
+}
+
+// ---- Geo / country → ASN → CIDR ----
+
+export interface CountryAsn {
+  asn: number;
+  holder: string;
+}
+
+export interface CountryAsnsResponse {
+  status: string;
+  country: string;
+  total: number;
+  page: number;
+  size: number;
+  asns: CountryAsn[];
+}
+
+export const getCountryAsns = (
+  country: string,
+  q = "",
+  page = 0,
+  size = 40,
+) =>
+  fetchJson<CountryAsnsResponse>(
+    `/api/geo/country-asns?country=${encodeURIComponent(country)}&q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  );
+
+export interface AsnPrefixesResponse {
+  status: string;
+  count: number;
+  cidrs: string[];
+  per_asn: { asn: number; cidrs: string[] }[];
+}
+
+export const getAsnPrefixes = (asns: number[]) =>
+  fetchJson<AsnPrefixesResponse>(
+    `/api/geo/asn-prefixes?asns=${asns.join(",")}`,
+  );
+
+// ---- Shodan ----
+
+export interface ShodanUsage {
+  query_credits: number;
+  scan_credits: number;
+  monitored_ips: number | null;
+  plan: string;
+  https: boolean;
+  unlocked: boolean;
+  telnet: boolean;
+  usage_limits?: Record<string, number>;
+}
+
+export const getShodanInfo = () =>
+  fetchJson<{ status: string; info: ShodanUsage }>(`/api/shodan/info`);
+
+export interface ShodanMatch {
+  ip: string;
+  port: number;
+  transport: string;
+  product: string;
+  org: string;
+  hostnames: string[];
+  country_code: string;
+}
+
+export interface ShodanSearchResponse {
+  status: string;
+  total: number;
+  page: number;
+  returned: number;
+  matches: ShodanMatch[];
+}
+
+export async function shodanSearch(query: string, page = 1) {
+  if (IS_SERVER) throw new Error("shodanSearch can only be called from client");
+  const res = await fetch(
+    `${API_BASE}/api/shodan/search?query=${encodeURIComponent(query)}&page=${page}`,
+  );
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Shodan search failed: ${res.status}`);
+  return json as ShodanSearchResponse;
+}
+
+export async function shodanImport(
+  query: string,
+  pages: number,
+  project?: string,
+) {
+  if (IS_SERVER) throw new Error("shodanImport can only be called from client");
+  const res = await fetch(`${API_BASE}/api/shodan/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, pages, project }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Shodan import failed: ${res.status}`);
+  return json;
+}
+
+export interface ShodanHostInfo {
+  status: string;
+  ip: string;
+  ports: number[];
+  hostnames: string[];
+  org: string;
+  asn: string;
+  country_code: string;
+  os: string;
+  last_update: string;
+}
+
+export async function shodanHostLookup(ip: string) {
+  if (IS_SERVER) throw new Error("shodanHostLookup can only be called from client");
+  const res = await fetch(`${API_BASE}/api/shodan/host?ip=${encodeURIComponent(ip)}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Shodan host lookup failed: ${res.status}`);
+  return json as ShodanHostInfo;
+}
+
+export async function shodanImportHosts(ips: string[], project?: string) {
+  if (IS_SERVER) throw new Error("shodanImportHosts can only be called from client");
+  const res = await fetch(`${API_BASE}/api/shodan/import-hosts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ips, project }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Shodan host import failed: ${res.status}`);
+  return json;
 }

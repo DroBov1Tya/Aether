@@ -10,6 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use super::routes;
+use crate::app::databases::clickhouse::queries::tokens;
 use crate::app::AppState;
 
 async fn require_api_key(State(state): State<Arc<AppState>>, req: Request, next: Next) -> Response {
@@ -17,11 +18,15 @@ async fn require_api_key(State(state): State<Arc<AppState>>, req: Request, next:
         return (StatusCode::UNAUTHORIZED, "missing x-api-key header").into_response();
     };
 
-    if key != state.cfg.api_key {
-        return (StatusCode::UNAUTHORIZED, "invalid api key").into_response();
+    if key == state.cfg.api_key {
+        return next.run(req).await;
     }
 
-    next.run(req).await
+    if tokens::is_valid(&state.ch, key).await {
+        return next.run(req).await;
+    }
+
+    (StatusCode::UNAUTHORIZED, "invalid api key").into_response()
 }
 
 pub async fn start(state: Arc<AppState>) -> Result<()> {

@@ -26,6 +26,7 @@ pub struct Config {
     pub s3_access_key: String,
     pub s3_secret_key: String,
     pub s3_bucket: String,
+    pub shodan_api_key: String,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -50,6 +51,7 @@ impl Config {
             s3_access_key: env("S3_ACCESS_KEY"),
             s3_secret_key: env("S3_SECRET_KEY"),
             s3_bucket: env("S3_BUCKET"),
+            shodan_api_key: env_or("SHODAN_API_KEY", ""),
         }
     }
 }

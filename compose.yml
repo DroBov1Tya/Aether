@@ -94,6 +94,7 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
       API_KEY: ${API_KEY}
+      SHODAN_API_KEY: ${SHODAN_API_KEY:-}
     networks:
       - Aether
 
@@ -118,6 +119,46 @@ services:
       BACKEND_URL: http://backend:8080
       API_KEY: ${API_KEY}
       AUTH_CODE: ${AUTH_CODE}
+    networks:
+      - Aether
+
+  # Scanning agent. No container_name / no host port binding so it can be
+  # replicated: `docker compose up -d --scale agent=N`. Agents self-register
+  # with the backend and only make outbound calls, so N instances just work.
+  agent:
+    build:
+      context: ./agent
+    restart: always
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      RUST_LOG: ${RUST_LOG}
+      TZ: ${TZ}
+      AGENT_PORT: ${AGENT_PORT}
+      EXTERNAL_SERVER_PATH: ${EXTERNAL_SERVER_PATH}
+      API_KEY: ${API_KEY}
+      SCANS_OUTPUT_PATH: ${SCANS_OUTPUT_PATH}
+      MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS}
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS}
+      SCAN_COOLDOWN: ${SCAN_COOLDOWN}
+      HXN_DELAY: ${HXN_DELAY}
+      HTTPX_THREADS: ${HTTPX_THREADS}
+      HTTPX_RATE_LIMIT: ${HTTPX_RATE_LIMIT}
+      HTTPX_TIMEOUT: ${HTTPX_TIMEOUT}
+      HTTPX_SCREENSHOTS: ${HTTPX_SCREENSHOTS}
+      HTTPX_WEB_PORTS: ${HTTPX_WEB_PORTS:-80,443,8080,8443,8000,8888}
+      NUCLEI_ENABLED: ${NUCLEI_ENABLED}
+      NUCLEI_SEVERITY: ${NUCLEI_SEVERITY}
+      NUCLEI_TAGS: ${NUCLEI_TAGS}
+      NUCLEI_RATE_LIMIT: ${NUCLEI_RATE_LIMIT}
+      NUCLEI_CONCURRENCY: ${NUCLEI_CONCURRENCY}
+      NUCLEI_TIMEOUT: ${NUCLEI_TIMEOUT}
+      TLSX_CONCURRENCY: ${TLSX_CONCURRENCY}
+      TLSX_TIMEOUT: ${TLSX_TIMEOUT}
+      DNSX_THREADS: ${DNSX_THREADS}
+      GEO_ENABLED: ${GEO_ENABLED:-true}
+      PROXIES: ${PROXIES}
     networks:
       - Aether
 

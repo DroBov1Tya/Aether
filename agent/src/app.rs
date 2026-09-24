@@ -1,6 +1,7 @@
 use crate::config::{self, Config};
 use anyhow::Result;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU8;
 use tokio::sync::{Semaphore, broadcast};
 
 mod server;
@@ -11,6 +12,7 @@ pub struct AppState {
     pub cfg: &'static Config,
     pub shutdown: broadcast::Sender<()>,
     pub scan_permits: Arc<Semaphore>,
+    pub busy: Arc<AtomicU8>,
 }
 
 pub struct Application {
@@ -26,10 +28,12 @@ impl Application {
         let (shutdown, _) = broadcast::channel(1);
 
         let scan_permits = Arc::new(Semaphore::new(cfg.max_concurrent_scans));
+        let busy = Arc::new(AtomicU8::new(0));
         let state = Arc::new(AppState {
             cfg,
             shutdown,
             scan_permits,
+            busy,
         });
 
         Ok(Self { state })

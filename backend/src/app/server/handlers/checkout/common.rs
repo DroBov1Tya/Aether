@@ -11,6 +11,8 @@ pub struct CheckoutReq {
     pub body: Value,
     pub country: Option<String>,
     pub port: Option<String>,
+    #[serde(default)]
+    pub project: Option<String>,
 }
 
 fn parse_body<'de, D>(deserializer: D) -> Result<Value, D::Error>

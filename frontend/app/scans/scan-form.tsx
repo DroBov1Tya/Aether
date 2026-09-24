@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import CountryAsnPicker from "./country-asn-picker";
+
 type ScanMethod = "rustscan" | "nmap" | "whatweb" | "hxn" | "fuzzing";
 type ScanProfile = "full" | "quick" | "deep" | "custom";
 
@@ -124,6 +126,18 @@ export default function ScansPage() {
   const [launchResult, setLaunchResult] = useState<string | null>(null);
 
   const parsed = parseTargets(targetInput);
+
+  const injectCidrs = (cidrs: string[]) => {
+    setTargetInput((prev) => {
+      const existing = new Set(
+        prev.split(/[\n,]+/).map((l) => l.trim()).filter(Boolean),
+      );
+      const fresh = cidrs.filter((c) => !existing.has(c));
+      if (fresh.length === 0) return prev;
+      const sep = prev.trim() ? "\n" : "";
+      return prev + sep + fresh.join("\n");
+    });
+  };
   const totalTargets =
     parsed.ips.length +
     parsed.domains.length +
@@ -269,26 +283,27 @@ export default function ScansPage() {
           className="card-panel"
           style={{
             marginBottom: 24,
-            background: "rgba(239,68,68,0.05)",
-            border: "1px solid rgba(239,68,68,0.3)",
+            background: "rgba(199,138,134,0.06)",
+            border: "1px solid rgba(199,138,134,0.28)",
           }}
         >
           <div
             style={{
               fontSize: 12,
               fontFamily: "JetBrains Mono",
-              color: "#ef4444",
+              color: "var(--state-danger)",
               marginBottom: 8,
               fontWeight: 600,
+              letterSpacing: "0.05em",
             }}
           >
-            ⚠ VALIDATION ERRORS
+            VALIDATION
           </div>
           <ul
             style={{
               margin: 0,
               paddingLeft: 20,
-              color: "#fca5a5",
+              color: "var(--color-text-soft)",
               fontSize: 13,
             }}
           >
@@ -307,9 +322,9 @@ export default function ScansPage() {
           style={{
             marginBottom: 24,
             background: launchResult.startsWith("✅")
-              ? "rgba(95,237,131,0.05)"
-              : "rgba(239,68,68,0.05)",
-            border: `1px solid ${launchResult.startsWith("✅") ? "rgba(95,237,131,0.3)" : "rgba(239,68,68,0.3)"}`,
+              ? "rgba(168,181,154,0.06)"
+              : "rgba(199,138,134,0.06)",
+            border: `1px solid ${launchResult.startsWith("✅") ? "rgba(168,181,154,0.28)" : "rgba(199,138,134,0.28)"}`,
           }}
         >
           <pre
@@ -317,7 +332,7 @@ export default function ScansPage() {
               margin: 0,
               fontFamily: "JetBrains Mono",
               fontSize: 12,
-              color: launchResult.startsWith("✅") ? "#5fed83" : "#ef4444",
+              color: launchResult.startsWith("✅") ? "var(--state-ok)" : "var(--state-danger)",
               whiteSpace: "pre-wrap",
             }}
           >
@@ -326,416 +341,324 @@ export default function ScansPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 24 }}>
-        <div className="card-panel">
-          <h2 className="panel-title">Targets</h2>
-          <div className="form-group">
-            <label className="form-label">
-              IP addresses, domains, CIDR ranges, or IP ranges (one per line or
-              comma-separated)
-            </label>
-            <textarea
-              className="form-textarea"
-              placeholder={`192.168.1.1\n10.0.0.0/24\n172.16.0.1-172.16.0.100\nexample.com\n8.8.8.8, 1.1.1.1`}
-              value={targetInput}
-              onChange={(e) => setTargetInput(e.target.value)}
-              style={{ height: 180 }}
-            />
-            <div className="form-hint">
-              Supported: single IPs, domains, CIDR (e.g. 10.0.0.0/24), ranges
-              (e.g. 192.168.1.1-100)
-            </div>
-          </div>
-
-          {totalTargets > 0 && (
-            <div
-              style={{
-                display: "flex",
-                gap: 16,
-                flexWrap: "wrap",
-                marginTop: 16,
-                padding: 16,
-                background: "rgba(95,237,131,0.05)",
-                border: "1px solid rgba(95,237,131,0.2)",
-                borderRadius: 8,
-              }}
-            >
-              {parsed.ips.length > 0 && (
-                <span style={{ fontSize: 13, color: "#5fed83" }}>
-                  <strong>{parsed.ips.length}</strong> IPs
-                </span>
-              )}
-              {parsed.domains.length > 0 && (
-                <span style={{ fontSize: 13, color: "#5fed83" }}>
-                  <strong>{parsed.domains.length}</strong> domains
-                </span>
-              )}
-              {parsed.cidrs.length > 0 && (
-                <span style={{ fontSize: 13, color: "#5fed83" }}>
-                  <strong>{parsed.cidrs.length}</strong> CIDRs
-                </span>
-              )}
-              {parsed.ranges.length > 0 && (
-                <span style={{ fontSize: 13, color: "#5fed83" }}>
-                  <strong>{parsed.ranges.length}</strong> ranges
-                </span>
-              )}
-              {parsed.invalid.length > 0 && (
-                <span style={{ fontSize: 13, color: "#ef4444" }}>
-                  <strong>{parsed.invalid.length}</strong> invalid
-                </span>
-              )}
-              <span
-                style={{ fontSize: 13, color: "#8c93fb", marginLeft: "auto" }}
-              >
-                Total: <strong>{totalTargets}</strong> targets
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="card-panel">
-          <h2 className="panel-title">Scan Profile</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {PROFILES.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleProfileChange(p.id)}
-                style={{
-                  padding: 16,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  background:
-                    profile === p.id
-                      ? "rgba(140,147,251,0.15)"
-                      : "rgba(0,0,0,0.3)",
-                  border: `1px solid ${profile === p.id ? "rgba(140,147,251,0.5)" : "#21262d"}`,
-                  borderRadius: 8,
-                  transition: "all 0.2s",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "#f0f6fc",
-                    marginBottom: 4,
-                  }}
-                >
-                  {p.label}
-                </div>
-                <div style={{ fontSize: 12, color: "#818b98" }}>
-                  {p.description}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="card-panel">
-          <h2 className="panel-title">Scan Methods</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {METHODS.map((m) => {
-              const checked = selectedMethods.has(m.id);
-              return (
-                <label
-                  key={m.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: 16,
-                    cursor: "pointer",
-                    background: checked
-                      ? "rgba(95,237,131,0.05)"
-                      : "rgba(0,0,0,0.3)",
-                    border: `1px solid ${checked ? "rgba(95,237,131,0.3)" : "#21262d"}`,
-                    borderRadius: 8,
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleMethod(m.id)}
-                    style={{ marginTop: 2, accentColor: "#5fed83" }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: "#f0f6fc",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {m.label}
-                      {m.requiresHttp && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            marginLeft: 6,
-                            padding: "2px 6px",
-                            background: "#283041",
-                            borderRadius: 4,
-                            color: "#f0c000",
-                          }}
-                        >
-                          HTTP
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#818b98" }}>
-                      {m.description}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="card-panel">
-          <h2 className="panel-title">Port Configuration</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            {[
-              {
-                id: "top1000",
-                label: "Top 1000",
-                desc: "Fast, ~1 min per host",
-              },
-              { id: "top10000", label: "Top 10000", desc: "Balanced" },
-              {
-                id: "all",
-                label: "All 65535",
-                desc: "Full scan (requires RustScan)",
-              },
-              { id: "custom", label: "Custom", desc: "Specify manually" },
-            ].map((m) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setPortMode(m.id as any);
-                  setProfile("custom");
-                }}
-                disabled={m.id === "all" && !selectedMethods.has("rustscan")}
-                style={{
-                  padding: 12,
-                  textAlign: "left",
-                  cursor:
-                    m.id === "all" && !selectedMethods.has("rustscan")
-                      ? "not-allowed"
-                      : "pointer",
-                  background:
-                    portMode === m.id
-                      ? "rgba(140,147,251,0.15)"
-                      : "rgba(0,0,0,0.3)",
-                  border: `1px solid ${portMode === m.id ? "rgba(140,147,251,0.5)" : "#21262d"}`,
-                  borderRadius: 8,
-                  opacity:
-                    m.id === "all" && !selectedMethods.has("rustscan")
-                      ? 0.4
-                      : 1,
-                }}
-              >
-                <div
-                  style={{ fontSize: 13, fontWeight: 600, color: "#f0f6fc" }}
-                >
-                  {m.label}
-                </div>
-                <div style={{ fontSize: 11, color: "#818b98" }}>{m.desc}</div>
-              </button>
-            ))}
-          </div>
-
-          {portMode === "custom" && (
+      <div className="scan-layout">
+        <div className="scan-config">
+          <div className="card-panel">
+            <h2 className="panel-title">Targets</h2>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Custom port range</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="80,443,8080 or 1-1000"
-                value={customPorts}
-                onChange={(e) => setCustomPorts(e.target.value)}
+              <label className="form-label">
+                IP addresses, domains, CIDR ranges, or IP ranges — one per line
+                or comma-separated
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder={`192.168.1.1\n10.0.0.0/24\n172.16.0.1-172.16.0.100\nexample.com\n8.8.8.8, 1.1.1.1`}
+                value={targetInput}
+                onChange={(e) => setTargetInput(e.target.value)}
+                style={{ height: 160 }}
               />
+              <div className="form-hint">
+                Supported: single IPs, domains, CIDR (10.0.0.0/24), ranges
+                (192.168.1.1-100)
+              </div>
             </div>
-          )}
 
-          {(selectedMethods.has("whatweb") || selectedMethods.has("hxn")) &&
-            !selectedMethods.has("rustscan") &&
-            !selectedMethods.has("nmap") && (
-              <div
-                className="form-group"
-                style={{
-                  marginTop: 16,
-                  marginBottom: 0,
-                  padding: 16,
-                  background: "rgba(240,192,0,0.05)",
-                  border: "1px solid rgba(240,192,0,0.2)",
-                  borderRadius: 8,
-                }}
-              >
-                <label className="form-label" style={{ color: "#f0c000" }}>
-                  ⚠ HTTP Port (required for WhatWeb/HXN without port discovery)
-                </label>
+            {totalTargets > 0 && (
+              <div className="target-summary">
+                {parsed.ips.length > 0 && (
+                  <span><strong>{parsed.ips.length}</strong> IPs</span>
+                )}
+                {parsed.domains.length > 0 && (
+                  <span><strong>{parsed.domains.length}</strong> domains</span>
+                )}
+                {parsed.cidrs.length > 0 && (
+                  <span><strong>{parsed.cidrs.length}</strong> CIDRs</span>
+                )}
+                {parsed.ranges.length > 0 && (
+                  <span><strong>{parsed.ranges.length}</strong> ranges</span>
+                )}
+                {parsed.invalid.length > 0 && (
+                  <span className="invalid"><strong>{parsed.invalid.length}</strong> invalid</span>
+                )}
+                <span className="total">
+                  Total: <strong style={{ color: "var(--color-champagne)" }}>{totalTargets}</strong>
+                </span>
+              </div>
+            )}
+
+            <CountryAsnPicker onInject={injectCidrs} />
+          </div>
+
+          <div className="card-panel">
+            <h2 className="panel-title">Scan Profile</h2>
+            <div className="option-grid cols-profile">
+              {PROFILES.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleProfileChange(p.id)}
+                  className={`option-card${profile === p.id ? " is-selected" : ""}`}
+                >
+                  <div>
+                    <div className="option-card-title">{p.label}</div>
+                    <div className="option-card-desc">{p.description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card-panel">
+            <h2 className="panel-title">Scan Methods</h2>
+            <div className="option-grid cols-method">
+              {METHODS.map((m) => {
+                const checked = selectedMethods.has(m.id);
+                return (
+                  <label
+                    key={m.id}
+                    className={`option-card${checked ? " is-selected" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleMethod(m.id)}
+                      style={{ marginTop: 3, accentColor: "#e0c3a6" }}
+                    />
+                    <div>
+                      <div className="option-card-title">
+                        {m.label}
+                        {m.requiresHttp && <span className="option-tag">HTTP</span>}
+                      </div>
+                      <div className="option-card-desc">{m.description}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card-panel">
+            <h2 className="panel-title">Port Configuration</h2>
+            <div className="option-grid cols-port" style={{ marginBottom: 16 }}>
+              {[
+                { id: "top1000", label: "Top 1000", desc: "Fast, ~1 min/host" },
+                { id: "top10000", label: "Top 10000", desc: "Balanced" },
+                { id: "all", label: "All 65535", desc: "Full (needs RustScan)" },
+                { id: "custom", label: "Custom", desc: "Specify manually" },
+              ].map((m) => {
+                const disabled = m.id === "all" && !selectedMethods.has("rustscan");
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      setPortMode(m.id as any);
+                      setProfile("custom");
+                    }}
+                    disabled={disabled}
+                    className={`option-card${portMode === m.id ? " is-selected" : ""}${disabled ? " is-disabled" : ""}`}
+                  >
+                    <div>
+                      <div className="option-card-title">{m.label}</div>
+                      <div className="option-card-desc">{m.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {portMode === "custom" && (
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Custom port range</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="80,443,8080 or 1-1000"
+                  value={customPorts}
+                  onChange={(e) => setCustomPorts(e.target.value)}
+                />
+              </div>
+            )}
+
+            {(selectedMethods.has("whatweb") || selectedMethods.has("hxn")) &&
+              !selectedMethods.has("rustscan") &&
+              !selectedMethods.has("nmap") && (
+                <div
+                  className="form-group"
+                  style={{
+                    marginTop: 16,
+                    marginBottom: 0,
+                    padding: 16,
+                    background: "rgba(216,183,132,0.05)",
+                    border: "1px solid rgba(216,183,132,0.2)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <label className="form-label" style={{ color: "var(--state-warn)" }}>
+                    HTTP Port — required for WhatWeb/HXN without port discovery
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="80 or 443 or 8080"
+                    value={httpPort}
+                    onChange={(e) => setHttpPort(e.target.value)}
+                  />
+                  <div className="form-hint">
+                    Without RustScan/Nmap, these tools need an explicit HTTP port
+                  </div>
+                </div>
+              )}
+          </div>
+
+          <div className="card-panel">
+            <h2 className="panel-title">Advanced Settings</h2>
+            <div className="option-grid cols-settings">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Threads</label>
                 <input
                   type="number"
                   className="form-input"
-                  placeholder="80 or 443 or 8080"
-                  value={httpPort}
-                  onChange={(e) => setHttpPort(e.target.value)}
+                  value={threads}
+                  onChange={(e) => setThreads(e.target.value)}
                 />
-                <div className="form-hint">
-                  Without RustScan/Nmap, these tools need an explicit HTTP port
-                </div>
               </div>
-            )}
-        </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Timeout (ms)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={timeout}
+                  onChange={(e) => setTimeout_(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Priority</label>
+                <select
+                  className="form-select"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                >
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Proxy (optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="socks5://127.0.0.1:9050"
+                  value={proxy}
+                  onChange={(e) => setProxy(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
 
-        <div className="card-panel">
-          <h2 className="panel-title">Advanced Settings</h2>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: 16,
-            }}
+            className="card-panel"
+            style={{ opacity: 0.55, border: "1px dashed var(--color-border-subtle)" }}
           >
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Threads</label>
-              <input
-                type="number"
-                className="form-input"
-                value={threads}
-                onChange={(e) => setThreads(e.target.value)}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Timeout (ms)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={timeout}
-                onChange={(e) => setTimeout_(e.target.value)}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Priority</label>
-              <select
-                className="form-select"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as any)}
+            <h2 className="panel-title" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
+              Fuzzing
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  padding: "3px 9px",
+                  background: "var(--color-obsidian-3)",
+                  borderRadius: 60,
+                  color: "var(--color-text-muted)",
+                  textTransform: "uppercase",
+                }}
               >
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Proxy (optional)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="socks5://127.0.0.1:9050"
-                value={proxy}
-                onChange={(e) => setProxy(e.target.value)}
-              />
-            </div>
+                Coming soon
+              </span>
+            </h2>
           </div>
         </div>
 
-        <div
-          className="card-panel"
-          style={{ opacity: 0.5, border: "1px dashed #21262d" }}
-        >
-          <h2 className="panel-title">
-            Fuzzing{" "}
-            <span
+        <aside className="scan-aside">
+          <div className="card-panel" style={{ marginBottom: 0 }}>
+            <h2 className="panel-title">Summary</h2>
+            <div className="launch-summary-row">
+              <span className="launch-summary-label">Targets</span>
+              <span className="launch-summary-value">{totalTargets}</span>
+            </div>
+            <div className="launch-summary-row">
+              <span className="launch-summary-label">Methods</span>
+              <span className="launch-summary-value">
+                {selectedMethods.size > 0
+                  ? Array.from(selectedMethods).join(", ")
+                  : "—"}
+              </span>
+            </div>
+            <div className="launch-summary-row">
+              <span className="launch-summary-label">Ports</span>
+              <span className="launch-summary-value">
+                {portMode === "custom" ? customPorts || "custom" : portMode}
+              </span>
+            </div>
+            <div className="launch-summary-row">
+              <span className="launch-summary-label">Priority</span>
+              <span className="launch-summary-value">{priority}</span>
+            </div>
+
+            <button
+              className="scan-btn"
+              onClick={startScan}
+              disabled={
+                isScanning ||
+                totalTargets === 0 ||
+                selectedMethods.size === 0 ||
+                validationErrors.length > 0
+              }
+              style={{ marginTop: 20 }}
+            >
+              {isScanning
+                ? "Launching…"
+                : validationErrors.length > 0
+                  ? `Fix ${validationErrors.length} error${validationErrors.length > 1 ? "s" : ""}`
+                  : totalTargets === 0
+                    ? "Add targets to start"
+                    : selectedMethods.size === 0
+                      ? "Select a method"
+                      : `Launch scan · ${totalTargets} target${totalTargets > 1 ? "s" : ""}`}
+            </button>
+          </div>
+
+          <details className="card-panel" style={{ marginBottom: 0 }}>
+            <summary
               style={{
-                fontSize: 11,
-                padding: "2px 8px",
-                background: "#283041",
-                borderRadius: 60,
-                marginLeft: 8,
-                color: "#818b98",
+                cursor: "pointer",
+                fontSize: 12,
+                color: "var(--color-text-muted)",
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.03em",
+                listStyle: "none",
               }}
             >
-              COMING SOON
-            </span>
-          </h2>
-          <p style={{ fontSize: 13, color: "#818b98" }}>
-            URL/parameter fuzzing, directory brute-force, and vulnerability
-            scanning will be available in a future release.
-          </p>
-        </div>
-
-        <div
-          className="card-panel"
-          style={{
-            background: "rgba(140,147,251,0.03)",
-            border: "1px dashed rgba(140,147,251,0.3)",
-          }}
-        >
-          <h2 className="panel-title">📋 Payload Preview (sent to backend)</h2>
-          <pre
-            style={{
-              margin: 0,
-              fontFamily: "JetBrains Mono",
-              fontSize: 11,
-              color: "#a4aea6",
-              background: "rgba(0,0,0,0.4)",
-              padding: 16,
-              borderRadius: 6,
-              overflowX: "auto",
-              maxHeight: 400,
-            }}
-          >
-            {JSON.stringify(buildPayload(), null, 2)}
-          </pre>
-        </div>
-
-        <div className="card-panel">
-          <button
-            className="scan-btn"
-            onClick={startScan}
-            disabled={
-              isScanning ||
-              totalTargets === 0 ||
-              selectedMethods.size === 0 ||
-              validationErrors.length > 0
-            }
-            style={{ fontSize: 16, padding: 18 }}
-          >
-            {isScanning
-              ? "⏳ LAUNCHING..."
-              : validationErrors.length > 0
-                ? `⚠ FIX ${validationErrors.length} ERROR(S)`
-                : totalTargets === 0
-                  ? "ADD TARGETS TO START"
-                  : selectedMethods.size === 0
-                    ? "SELECT AT LEAST ONE METHOD"
-                    : `▶ LAUNCH SCAN (${totalTargets} targets, ${selectedMethods.size} methods)`}
-          </button>
-        </div>
+              ▸ Payload preview
+            </summary>
+            <pre
+              style={{
+                margin: "14px 0 0",
+                fontFamily: "JetBrains Mono",
+                fontSize: 11,
+                color: "var(--color-text-muted)",
+                background: "var(--color-void-black)",
+                padding: 14,
+                borderRadius: 8,
+                overflowX: "auto",
+                maxHeight: 320,
+                boxShadow: "inset 0 1px 6px rgba(0,0,0,0.5)",
+              }}
+            >
+              {JSON.stringify(buildPayload(), null, 2)}
+            </pre>
+          </details>
+        </aside>
       </div>
     </div>
   );

@@ -84,10 +84,9 @@ impl Application {
             }
         });
 
-        let distributor_ch = self.state.ch.clone();
-        let distributor_key = self.state.cfg.api_key.to_string();
+        let reaper_ch = self.state.ch.clone();
         tokio::spawn(async move {
-            workers::distributor::run(distributor_ch, distributor_key).await;
+            workers::reaper::run(reaper_ch).await;
         });
 
         tracing::info!("Ready  RSS={}MB", rss_mb());

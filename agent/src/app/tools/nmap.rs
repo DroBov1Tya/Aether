@@ -37,6 +37,7 @@ pub async fn run_nmap(
     task_uid: Option<&str>,
     ports: &str,
     scans_output_path: &str,
+    proxy: Option<&str>,
     api_key: &str,
 ) -> Result<Vec<String>> {
     let out_dir = Path::new(scans_output_path);
@@ -47,7 +48,7 @@ pub async fn run_nmap(
     let mut http_services: Vec<String> = Vec::new();
 
     let mut cmd = Command::new("nmap");
-    super::common::apply_proxy(&mut cmd);
+    super::common::apply_proxy_with(&mut cmd, proxy);
 
     let port_arg = format!("-p{}", ports);
 
@@ -58,8 +59,7 @@ pub async fn run_nmap(
     args.push(CENSYS_HTTP_SCRIPTS);
     args.push(&port_arg);
 
-    let proxies = &crate::config::cfg().proxies;
-    if let Some(proxy) = super::common::pick_random(proxies) {
+    if let Some(proxy) = proxy.filter(|p| !p.trim().is_empty()) {
         args.push("--proxies");
         args.push(proxy);
     }

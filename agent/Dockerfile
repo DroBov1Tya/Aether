@@ -51,6 +51,51 @@ RUN export RUST_TARGET=$(cat /tmp/rust-target) && \
     cargo install rustscan --target $RUST_TARGET --root /output/tools && \
     cp /output/tools/bin/rustscan /output/rustscan
 
+# httpx (ProjectDiscovery) — batch HTTP probe + screenshots. Pull the
+# release binary for the target arch instead of building from source.
+ARG HTTPX_VERSION=1.6.9
+RUN case "$TARGETPLATFORM" in \
+      "linux/amd64") HX_ARCH="amd64" ;; \
+      "linux/arm64") HX_ARCH="arm64" ;; \
+      *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
+    esac && \
+    apt-get update && apt-get install -y curl unzip && \
+    curl -sSL -o /tmp/httpx.zip \
+      "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_${HX_ARCH}.zip" && \
+    unzip -o /tmp/httpx.zip -d /tmp/httpx && \
+    cp /tmp/httpx/httpx /output/httpx && \
+    chmod +x /output/httpx
+
+# nuclei (ProjectDiscovery) — the "hunt" layer. Release binary per arch.
+ARG NUCLEI_VERSION=3.3.7
+RUN case "$TARGETPLATFORM" in \
+      "linux/amd64") NX_ARCH="amd64" ;; \
+      "linux/arm64") NX_ARCH="arm64" ;; \
+      *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
+    esac && \
+    curl -sSL -o /tmp/nuclei.zip \
+      "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_${NX_ARCH}.zip" && \
+    unzip -o /tmp/nuclei.zip -d /tmp/nuclei && \
+    cp /tmp/nuclei/nuclei /output/nuclei && \
+    chmod +x /output/nuclei
+
+# tlsx + dnsx (ProjectDiscovery) — batch TLS grab (SAN/JARM) and resolver.
+ARG TLSX_VERSION=1.1.9
+ARG DNSX_VERSION=1.2.2
+RUN case "$TARGETPLATFORM" in \
+      "linux/amd64") PD_ARCH="amd64" ;; \
+      "linux/arm64") PD_ARCH="arm64" ;; \
+      *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
+    esac && \
+    curl -sSL -o /tmp/tlsx.zip \
+      "https://github.com/projectdiscovery/tlsx/releases/download/v${TLSX_VERSION}/tlsx_${TLSX_VERSION}_linux_${PD_ARCH}.zip" && \
+    unzip -o /tmp/tlsx.zip -d /tmp/tlsx && \
+    cp /tmp/tlsx/tlsx /output/tlsx && chmod +x /output/tlsx && \
+    curl -sSL -o /tmp/dnsx.zip \
+      "https://github.com/projectdiscovery/dnsx/releases/download/v${DNSX_VERSION}/dnsx_${DNSX_VERSION}_linux_${PD_ARCH}.zip" && \
+    unzip -o /tmp/dnsx.zip -d /tmp/dnsx && \
+    cp /tmp/dnsx/dnsx /output/dnsx && chmod +x /output/dnsx
+
 # Runtime stage
 FROM debian:bookworm-slim
 
@@ -77,6 +122,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 
 COPY --from=builder /output/app /app/agent
 COPY --from=builder /output/rustscan /usr/local/bin/rustscan
+COPY --from=builder /output/httpx /usr/local/bin/httpx
+COPY --from=builder /output/nuclei /usr/local/bin/nuclei
+COPY --from=builder /output/tlsx /usr/local/bin/tlsx
+COPY --from=builder /output/dnsx /usr/local/bin/dnsx
 
 ENV RUST_LOG=info
 ENV HOME=/tmp

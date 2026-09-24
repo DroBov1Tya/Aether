@@ -56,6 +56,22 @@ export async function POST(
   return proxyRequest(targetUrl, { method: "POST", body });
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
+) {
+  const { path } = await params;
+  const apiPath = "/" + path.join("/");
+  const searchParams = request.nextUrl.searchParams.toString();
+  const targetUrl = `${BACKEND_URL}${apiPath}${searchParams ? "?" + searchParams : ""}`;
+  const body = await request.text();
+
+  return proxyRequest(targetUrl, {
+    method: "DELETE",
+    body: body || undefined,
+  });
+}
+
 async function proxyRequest(
   targetUrl: string,
   init: RequestInit,

@@ -14,7 +14,7 @@ pub async fn get_host(
     State(state): State<Arc<AppState>>,
     Path(ip): Path<String>,
 ) -> impl IntoResponse {
-    let (nmap, rustscan, whatweb, screenshots, summary, dns, ssl, fuzzing) = tokio::join!(
+    let (nmap, rustscan, whatweb, screenshots, summary, dns, ssl, fuzzing, geo) = tokio::join!(
         search::fetch_host_nmap(&state.ch, &ip),
         search::fetch_host_rustscan(&state.ch, &ip),
         search::fetch_host_whatweb(&state.ch, &ip),
@@ -23,6 +23,7 @@ pub async fn get_host(
         search::fetch_host_dns(&state.ch, &ip),
         search::fetch_host_ssl(&state.ch, &ip),
         search::fetch_host_fuzzing(&state.ch, &ip),
+        search::fetch_host_geo(&state.ch, &ip),
     );
 
     let nmap = nmap.unwrap_or_else(|e| {
@@ -56,6 +57,10 @@ pub async fn get_host(
         tracing::error!("fuzzing: {e}");
         vec![]
     });
+    let geo = geo.unwrap_or_else(|e| {
+        tracing::error!("geo: {e}");
+        Value::Null
+    });
 
     let summary = summary.unwrap_or_else(|_| json!({ "open_ports": nmap.len(), "first_seen": Value::Null, "last_seen": Value::Null }));
 
@@ -79,7 +84,7 @@ pub async fn get_host(
         StatusCode::OK,
         Json(json!({
             "status": "ok", "target": ip, "open_ports": nmap, "web_services": whatweb,
-            "screenshots": screenshots, "dns": dns, "ssl": ssl, "fuzzing": fuzzing,
+            "screenshots": screenshots, "dns": dns, "ssl": ssl, "fuzzing": fuzzing, "geo": geo,
             "summary": { "open_ports": summary["open_ports"], "total_services": total_services, "first_seen": summary["first_seen"], "last_seen": summary["last_seen"] }
         })),
     )

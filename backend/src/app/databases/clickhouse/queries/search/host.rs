@@ -31,7 +31,7 @@ pub async fn fetch_host_nmap(client: &Client, target: &str) -> Result<Vec<Value>
 
 pub async fn fetch_host_whatweb(client: &Client, target: &str) -> Result<Vec<Value>> {
     let sql = r#"
-        SELECT port, url, http_status, title, technologies, scanned_at, scan_uid
+        SELECT port, url, http_status, title, technologies, headers, scanned_at, scan_uid
         FROM scan_results_whatweb
         WHERE target = ?
         ORDER BY scanned_at DESC
@@ -99,7 +99,7 @@ pub async fn fetch_host_dns(client: &Client, target: &str) -> Result<Value> {
 pub async fn fetch_host_ssl(client: &Client, target: &str) -> Result<Vec<Value>> {
     let sql = r#"
         SELECT port, subject, issuer, not_before, not_after, serial,
-               san, ssl_version, cipher, chain_length, scanned_at,
+               san, ssl_version, cipher, jarm, chain_length, scanned_at,
                scan_uid
         FROM scan_results_ssl
         WHERE host = ?
@@ -194,7 +194,7 @@ pub async fn fetch_host_snapshots(client: &Client, target: &str) -> Result<Vec<V
              FROM scan_results_nmap
              WHERE target = ? AND scan_uid = uid
             ) AS nmap,
-            (SELECT groupArray((port, url, http_status, title, technologies))
+            (SELECT groupArray((port, url, http_status, title, technologies, headers))
              FROM scan_results_whatweb
              WHERE target = ? AND scan_uid = uid
             ) AS whatweb,
@@ -328,4 +328,27 @@ pub async fn fetch_host_fuzzing(client: &Client, target: &str) -> Result<Vec<Val
         )
     });
     Ok(rows)
+}
+
+pub async fn fetch_host_geo(client: &Client, target: &str) -> Result<Value> {
+    let sql = r#"
+        SELECT target, country, country_code, city, lat, lon, asn, org, isp
+        FROM host_geo FINAL
+        WHERE target = ?
+        LIMIT 1
+    "#;
+    let bytes = client
+        .query(sql)
+        .bind(target)
+        .fetch_bytes("JSON")
+        .context("ClickHouse query failed")?
+        .collect()
+        .await
+        .context("Failed to collect ClickHouse response")?;
+
+    let j: Value = serde_json::from_slice(&bytes).context("Failed to parse JSON")?;
+    if j["data"].as_array().is_none_or(|a| a.is_empty()) {
+        return Ok(Value::Null);
+    }
+    Ok(j["data"][0].clone())
 }

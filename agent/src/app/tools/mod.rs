@@ -1,10 +1,16 @@
 pub mod backend;
 pub mod common;
 pub mod dns;
+pub mod dnsx;
 pub mod fuzzing;
+pub mod geo;
+pub mod httpx;
 pub mod hxn;
 pub mod nmap;
+pub mod nuclei;
+pub mod proxy;
 pub mod rustscan;
 pub mod ssl;
+pub mod tlsx;
 pub mod whatweb;
 pub mod whois;

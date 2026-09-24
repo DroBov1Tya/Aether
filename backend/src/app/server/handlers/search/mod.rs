@@ -1,6 +1,7 @@
 pub mod aggregated;
 pub mod dns;
 pub mod domain;
+pub mod header;
 pub mod image;
 pub mod ip;
 pub mod port;
@@ -19,6 +20,8 @@ pub struct QParam {
     pub page: u32,
     #[serde(default = "default_per_page")]
     pub per_page: u32,
+    #[serde(default = "default_project")]
+    pub project: String,
 }
 
 #[derive(Deserialize)]
@@ -28,6 +31,8 @@ pub struct PortParam {
     pub page: u32,
     #[serde(default = "default_per_page")]
     pub per_page: u32,
+    #[serde(default = "default_project")]
+    pub project: String,
 }
 
 fn default_page() -> u32 {
@@ -35,6 +40,9 @@ fn default_page() -> u32 {
 }
 fn default_per_page() -> u32 {
     50
+}
+pub fn default_project() -> String {
+    "global".to_string()
 }
 
 impl QParam {

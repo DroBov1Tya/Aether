@@ -39,11 +39,21 @@ pub fn pick_random(items: &[String]) -> Option<&String> {
 }
 
 pub fn apply_proxy(cmd: &mut Command) {
-    let cfg = crate::config::cfg();
-    if let Some(proxy) = pick_random(&cfg.proxies) {
-        cmd.env("ALL_PROXY", proxy);
-        cmd.env("HTTP_PROXY", proxy);
-        cmd.env("HTTPS_PROXY", proxy);
+    apply_proxy_with(cmd, None)
+}
+
+pub fn apply_proxy_with(cmd: &mut Command, proxy: Option<&str>) {
+    let picked: Option<String> = match proxy {
+        Some(p) if !p.trim().is_empty() => Some(p.to_string()),
+        _ => {
+            let cfg = crate::config::cfg();
+            pick_random(&cfg.proxies).map(String::from)
+        }
+    };
+    if let Some(proxy) = picked {
+        cmd.env("ALL_PROXY", &proxy);
+        cmd.env("HTTP_PROXY", &proxy);
+        cmd.env("HTTPS_PROXY", &proxy);
     }
 }
 

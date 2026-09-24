@@ -14,7 +14,12 @@ pub async fn save_data(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CheckoutReq>,
 ) -> impl IntoResponse {
-    let item = match insert_dns::from_json(&req.scan_uid, req.country.clone(), &req.body) {
+    let item = match insert_dns::from_json_with_project(
+        &req.scan_uid,
+        req.project.as_deref().unwrap_or("global"),
+        req.country.clone(),
+        &req.body,
+    ) {
         Some(row) => row,
         None => {
             tracing::warn!("dns  {}  invalid body", req.target);

@@ -15,8 +15,8 @@ pub async fn search_ssl(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
-    let total = search::count_search_by_ssl(&state.ch, &params.q).await.unwrap_or(0);
-    match search::search_by_ssl(&state.ch, &params.q, params.per_page, params.offset()).await {
+    let total = search::count_search_by_ssl(&state.ch, &params.q, &params.project).await.unwrap_or(0);
+    match search::search_by_ssl(&state.ch, &params.q, &params.project, params.per_page, params.offset()).await {
         Ok(data) => (
             StatusCode::OK,
             Json(

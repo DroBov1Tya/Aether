@@ -17,8 +17,8 @@ pub async fn search_image(
     State(state): State<Arc<AppState>>,
     Query(params): Query<QParam>,
 ) -> impl IntoResponse {
-    let total = search::count_search_by_image(&state.ch, &params.q).await.unwrap_or(0);
-    let rows = match search::search_by_image(&state.ch, &params.q, params.per_page, params.offset())
+    let total = search::count_search_by_image(&state.ch, &params.q, &params.project).await.unwrap_or(0);
+    let rows = match search::search_by_image(&state.ch, &params.q, &params.project, params.per_page, params.offset())
         .await
     {
         Ok(data) => data,

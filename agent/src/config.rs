@@ -26,9 +26,27 @@ pub struct Config {
     pub hxn_delay: u64,
     pub scan_cooldown: u64,
     pub api_key: String,
+    pub agent_token: String,
+    pub agent_id: String,
+    pub credentials_path: String,
     pub proxies: Vec<String>,
     pub max_concurrent_scans: usize,
     pub max_concurrent_tasks: u8,
+    pub httpx_threads: u32,
+    pub httpx_rate_limit: u32,
+    pub httpx_timeout: u64,
+    pub httpx_screenshots: bool,
+    pub httpx_web_ports: Vec<u16>,
+    pub nuclei_enabled: bool,
+    pub nuclei_severity: String,
+    pub nuclei_tags: String,
+    pub nuclei_rate_limit: u32,
+    pub nuclei_concurrency: u32,
+    pub nuclei_timeout: u64,
+    pub tlsx_concurrency: u32,
+    pub tlsx_timeout: u64,
+    pub dnsx_threads: u32,
+    pub geo_enabled: bool,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -43,7 +61,6 @@ pub fn env_or(key: &str, default: &str) -> String {
 
 impl Config {
     fn load() -> Self {
-        // Load variables from .env file (only if present)
         let _ = dotenvy::dotenv();
 
         let proxies_str = std::env::var("PROXIES").unwrap_or_default();
@@ -66,9 +83,31 @@ impl Config {
             hxn_delay: env_or("HXN_DELAY", "5").parse().unwrap_or(5),
             scan_cooldown: env_or("SCAN_COOLDOWN", "60").parse().unwrap_or(60),
             api_key: env("API_KEY"),
+            agent_token: std::env::var("AGENT_TOKEN").unwrap_or_default(),
+            agent_id: std::env::var("AGENT_ID").unwrap_or_default(),
+            credentials_path: std::env::var("AGENT_CREDENTIALS_PATH")
+                .unwrap_or_else(|_| format!("{}/.aether-agent.json", std::env::var("HOME").unwrap_or_default())),
             proxies,
             max_concurrent_scans: env_or("MAX_CONCURRENT_SCANS", "3").parse().unwrap_or(3),
             max_concurrent_tasks: env_or("MAX_CONCURRENT_TASKS", "10").parse().unwrap_or(10),
+            httpx_threads: env_or("HTTPX_THREADS", "50").parse().unwrap_or(50),
+            httpx_rate_limit: env_or("HTTPX_RATE_LIMIT", "150").parse().unwrap_or(150),
+            httpx_timeout: env_or("HTTPX_TIMEOUT", "10").parse().unwrap_or(10),
+            httpx_screenshots: env_or("HTTPX_SCREENSHOTS", "true").parse().unwrap_or(true),
+            httpx_web_ports: env_or("HTTPX_WEB_PORTS", "80,443,8080,8443,8000,8888")
+                .split(',')
+                .filter_map(|p| p.trim().parse::<u16>().ok())
+                .collect(),
+            nuclei_enabled: env_or("NUCLEI_ENABLED", "true").parse().unwrap_or(true),
+            nuclei_severity: env_or("NUCLEI_SEVERITY", "critical,high,medium"),
+            nuclei_tags: env_or("NUCLEI_TAGS", ""),
+            nuclei_rate_limit: env_or("NUCLEI_RATE_LIMIT", "150").parse().unwrap_or(150),
+            nuclei_concurrency: env_or("NUCLEI_CONCURRENCY", "25").parse().unwrap_or(25),
+            nuclei_timeout: env_or("NUCLEI_TIMEOUT", "10").parse().unwrap_or(10),
+            tlsx_concurrency: env_or("TLSX_CONCURRENCY", "50").parse().unwrap_or(50),
+            tlsx_timeout: env_or("TLSX_TIMEOUT", "5").parse().unwrap_or(5),
+            dnsx_threads: env_or("DNSX_THREADS", "100").parse().unwrap_or(100),
+            geo_enabled: env_or("GEO_ENABLED", "true").parse().unwrap_or(true),
         }
     }
 }

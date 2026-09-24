@@ -14,8 +14,10 @@ pub struct SslRow {
     pub san: Vec<String>,
     pub ssl_version: String,
     pub cipher: String,
+    pub jarm: String,
     pub chain_length: u8,
     pub country: Option<String>,
+    pub project: String,
     pub scan_uid: String,
 }
 
@@ -31,36 +33,26 @@ pub fn from_json(
     country: Option<String>,
     item: &serde_json::Value,
 ) -> Option<SslRow> {
+    from_json_with_project(scan_uid, "global", country, item)
+}
+
+pub fn from_json_with_project(
+    scan_uid: &str,
+    project: &str,
+    country: Option<String>,
+    item: &serde_json::Value,
+) -> Option<SslRow> {
     Some(SslRow {
         host: item.get("host")?.as_str()?.to_string(),
         scan_uid: scan_uid.to_string(),
+        project: project.to_string(),
         country,
         port: item.get("port")?.as_u64()? as u16,
-        subject: item
-            .get("subject")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        issuer: item
-            .get("issuer")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        not_before: item
-            .get("not_before")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        not_after: item
-            .get("not_after")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        serial: item
-            .get("serial")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+        subject: str_field(item, "subject"),
+        issuer: str_field(item, "issuer"),
+        not_before: str_field(item, "not_before"),
+        not_after: str_field(item, "not_after"),
+        serial: str_field(item, "serial"),
         san: item
             .get("san")
             .and_then(|v| v.as_array())
@@ -70,19 +62,19 @@ pub fn from_json(
                     .collect()
             })
             .unwrap_or_default(),
-        ssl_version: item
-            .get("ssl_version")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        cipher: item
-            .get("cipher")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+        ssl_version: str_field(item, "ssl_version"),
+        cipher: str_field(item, "cipher"),
+        jarm: str_field(item, "jarm"),
         chain_length: item
             .get("chain_length")
             .and_then(|v| v.as_u64())
             .unwrap_or(0) as u8,
     })
+}
+
+fn str_field(item: &serde_json::Value, key: &str) -> String {
+    item.get(key)
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
 }

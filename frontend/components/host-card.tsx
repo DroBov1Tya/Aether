@@ -16,7 +16,7 @@ export default function HostCard({ host }: Props) {
       className="host-card"
     >
       <div className="mb-3 flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-[#5fed83]" />
+        <div className="h-2 w-2 rounded-full bg-[#e8d5c0]" style={{ boxShadow: "0 0 8px rgba(232,213,192,0.6)" }} />
         <span className="font-mono text-base font-medium text-white">
           {host.target}
         </span>
@@ -24,17 +24,14 @@ export default function HostCard({ host }: Props) {
 
       <div className="mb-3 flex-wrap gap-1.5">
         {techs.map((t) => (
-          <span
-            key={t}
-            className="rounded-full border border-[#21262d] bg-[#283041] px-2.5 py-1 text-[11px] text-white"
-          >
+          <span key={t} className="tech-badge">
             {t}
           </span>
         ))}
       </div>
 
-      <div className="border-t border-[#21262d] pt-3">
-        <span className="text-[13px] font-medium text-[#8dd6ff]">
+      <div className="border-t border-[#1b1a1e] pt-3">
+        <span className="text-[13px] font-medium text-[#d3bda3]">
           View Details →
         </span>
       </div>

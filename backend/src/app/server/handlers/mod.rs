@@ -1,10 +1,13 @@
 pub mod agents;
 pub mod checkout;
+pub mod geo_ranges;
 pub mod getlast;
 pub mod health;
 pub mod host;
-pub mod register;
+pub mod projects;
+pub mod proxies;
 pub mod screenshots;
 pub mod search;
+pub mod shodan;
 pub mod stats;
 pub mod tasks;

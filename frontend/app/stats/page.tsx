@@ -27,7 +27,7 @@ function BarRow({
         style={{
           fontFamily: "JetBrains Mono",
           fontSize: 13,
-          color: "#f0f6fc",
+          color: "#f3f0eb",
           minWidth: 140,
         }}
       >
@@ -37,17 +37,19 @@ function BarRow({
         style={{
           flex: 1,
           height: 8,
-          background: "#21262d",
+          background: "var(--color-obsidian-3)",
           borderRadius: 4,
           overflow: "hidden",
+          boxShadow: "inset 0 1px 3px rgba(0,0,0,0.5)",
         }}
       >
         <div
           style={{
             width: pct,
             height: "100%",
-            background: "linear-gradient(90deg, #8c93fb, #5fed83)",
+            background: "linear-gradient(90deg, rgba(241,207,180,0.5), #f1cfb4)",
             borderRadius: 4,
+            boxShadow: "0 0 10px rgba(241,207,180,0.25)",
           }}
         />
       </div>
@@ -55,7 +57,7 @@ function BarRow({
         style={{
           fontFamily: "JetBrains Mono",
           fontSize: 13,
-          color: "#a4aea6",
+          color: "#9a938c",
           minWidth: 60,
           textAlign: "right",
         }}
@@ -90,10 +92,12 @@ export default async function StatsPage() {
 
   return (
     <div className="page-container">
-      <h1 className="page-title">STATISTICS</h1>
-      <p style={{ color: "#818b98", marginBottom: 48 }}>
-        Network intelligence overview
-      </p>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Statistics</h1>
+          <p className="page-subtitle">Network intelligence overview</p>
+        </div>
+      </div>
 
       {summary && (
         <div className="stats-grid">
@@ -163,7 +167,7 @@ export default async function StatsPage() {
             {techs.map((t) => (
               <div key={t.technology} className="tech-stat-pill">
                 <span>{t.technology}</span>
-                <span style={{ color: "#8c93fb", marginLeft: 6 }}>
+                <span style={{ color: "#f1cfb4", marginLeft: 6 }}>
                   {formatNumber(t.count)}
                 </span>
               </div>

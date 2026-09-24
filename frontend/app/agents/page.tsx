@@ -22,105 +22,103 @@ async function getAgents(): Promise<Agent[]> {
   }
 }
 
+function relTime(s: string): string {
+  if (!s) return "—";
+  const d = new Date(s.includes("T") ? s : s.replace(" ", "T") + "Z");
+  if (isNaN(d.getTime())) return s;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default async function AgentsPage() {
   const agents = await getAgents();
+  const online = agents.filter((a) => a.status === "active").length;
 
   return (
     <div className="page-container">
-      <h1 className="page-title">AGENTS</h1>
-      <p style={{ color: "#818b98", marginBottom: 24 }}>
-        {agents.length} registered agent{agents.length !== 1 ? "s" : ""}
-      </p>
-
-      <div className="card-panel" style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: 12,
-          }}
-        >
-          <thead>
-            <tr style={{ borderBottom: "1px solid #30363d" }}>
-              <th style={thStyle}>ID</th>
-              <th style={thStyle}>IP</th>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Version</th>
-              <th style={thStyle}>Port</th>
-              <th style={thStyle}>OS</th>
-              <th style={thStyle}>Arch</th>
-              <th style={thStyle}>Kernel</th>
-              <th style={thStyle}>Max Tasks</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Last Seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.length === 0 && (
-              <tr>
-                <td colSpan={11} style={{ textAlign: "center", padding: 32, color: "#818b98" }}>
-                  No agents registered
-                </td>
-              </tr>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Agents</h1>
+          <p className="page-subtitle">
+            {agents.length} registered
+            {agents.length > 0 && (
+              <>
+                {" · "}
+                <span style={{ color: "var(--state-ok)" }}>{online} online</span>
+              </>
             )}
-            {agents.map((a) => (
-              <tr
-                key={a.id}
-                style={{ borderBottom: "1px solid #21262d" }}
-              >
-                <td style={tdStyle}>
-                  <span style={{ color: "#8c93fb" }}>{a.id.slice(0, 8)}</span>
-                </td>
-                <td style={tdStyle}>{a.ip}</td>
-                <td style={tdStyle}>{a.name}</td>
-                <td style={tdStyle}>{a.version}</td>
-                <td style={tdStyle}>{a.port}</td>
-                <td style={tdStyle}>{a.os}</td>
-                <td style={tdStyle}>{a.arch}</td>
-                <td style={tdStyle}>{a.kernel}</td>
-                <td style={tdStyle}>
-                  <StatusBadge value={a.max_concurrent_tasks} />
-                </td>
-                <td style={tdStyle}>
+          </p>
+        </div>
+      </div>
+
+      {agents.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto" }}>
+              <rect x="3" y="4" width="18" height="12" rx="2" />
+              <line x1="7" y1="20" x2="17" y2="20" />
+              <line x1="12" y1="16" x2="12" y2="20" />
+              <circle cx="8" cy="10" r="1" fill="currentColor" />
+            </svg>
+          </div>
+          <p className="empty-title">No agents registered</p>
+          <p className="empty-desc">Agents appear here once they connect and authenticate.</p>
+        </div>
+      ) : (
+        <div className="agents-grid">
+          {agents.map((a) => {
+            const isActive = a.status === "active";
+            return (
+              <div key={a.id} className="agent-card">
+                <div className="agent-card-head">
+                  <div className="agent-identity">
+                    <span
+                      className="agent-status-dot"
+                      style={{ background: isActive ? "var(--state-ok)" : "var(--state-danger)" }}
+                    />
+                    <div>
+                      <div className="agent-name">{a.name || "unnamed"}</div>
+                      <div className="agent-id">{a.id.slice(0, 12)}</div>
+                    </div>
+                  </div>
                   <span
-                    style={{
-                      color: a.status === "active" ? "#3fb950" : "#f85149",
-                      fontWeight: 600,
-                    }}
+                    className="agent-status-label"
+                    style={{ color: isActive ? "var(--state-ok)" : "var(--state-danger)" }}
                   >
                     {a.status}
                   </span>
-                </td>
-                <td style={{ ...tdStyle, color: "#818b98" }}>
-                  {a.last_seen_at}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+
+                <div className="agent-endpoint">
+                  {a.ip}
+                  <span className="agent-port">:{a.port}</span>
+                </div>
+
+                <dl className="agent-meta">
+                  <div><dt>OS</dt><dd>{a.os || "—"}</dd></div>
+                  <div><dt>Arch</dt><dd>{a.arch || "—"}</dd></div>
+                  <div><dt>Version</dt><dd>{a.version || "—"}</dd></div>
+                  <div><dt>Kernel</dt><dd className="truncate" title={a.kernel}>{a.kernel || "—"}</dd></div>
+                </dl>
+
+                <div className="agent-card-foot">
+                  <div className="agent-capacity">
+                    <span className="agent-capacity-label">Capacity</span>
+                    <span className="agent-capacity-value">{a.max_concurrent_tasks} tasks</span>
+                  </div>
+                  <span className="agent-lastseen" title={a.last_seen_at}>
+                    {relTime(a.last_seen_at)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
-
-function StatusBadge({ value }: { value: number }) {
-  const color = value >= 10 ? "#3fb950" : value >= 5 ? "#d29922" : "#f85149";
-  return <span style={{ color, fontWeight: 600 }}>{value}</span>;
-}
-
-const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "10px 12px",
-  color: "#818b98",
-  fontWeight: 600,
-  fontSize: 11,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  color: "#f0f6fc",
-  whiteSpace: "nowrap",
-};

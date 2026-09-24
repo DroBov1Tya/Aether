@@ -39,6 +39,18 @@ interface WhatWebEntry {
   scan_uid?: string;
 }
 
+interface GeoInfo {
+  target?: string;
+  country?: string;
+  country_code?: string;
+  city?: string;
+  lat?: number;
+  lon?: number;
+  asn?: string;
+  org?: string;
+  isp?: string;
+}
+
 interface ScreenshotEntry {
   port: number;
   s3_key: string;
@@ -98,7 +110,7 @@ function ScreenshotImage({ ip, port }: { ip: string; port: number }) {
     let cancelled = false;
     (async () => {
       try {
-        // ИСПРАВЛЕНО: убран encodeURIComponent, прокси обрабатывает путь нативно
+        // Прокси обрабатывает путь нативно — без encodeURIComponent.
         const res = await fetch(`/api/proxy/api/screenshots/${ip}/${port}`);
         if (!res.ok) {
           console.warn("screenshot fetch failed", res.status);
@@ -263,12 +275,12 @@ function PortRow({
 
   const stateColor =
     port.state === "open"
-      ? "#5fed83"
+      ? "#e8d5c0"
       : port.state === "filtered"
-        ? "#f0c000"
+        ? "var(--state-warn)"
         : port.state === "closed"
-          ? "#ef4444"
-          : "#818b98";
+          ? "var(--state-danger)"
+          : "var(--color-text-muted)";
   const hasDetails =
     port.product ||
     port.version ||
@@ -315,7 +327,7 @@ function PortRow({
               <span className="port-product-text">
                 {port.product}
                 {port.version ? (
-                  <span style={{ color: "#818b98" }}> {port.version}</span>
+                  <span style={{ color: "var(--color-text-muted)" }}> {port.version}</span>
                 ) : (
                   ""
                 )}
@@ -369,7 +381,7 @@ function PortRow({
                     <td className="detail-value-muted">
                       {port.os_name}
                       {port.os_accuracy ? (
-                        <span style={{ color: "#818b98" }}>
+                        <span style={{ color: "var(--color-text-muted)" }}>
                           {" "}
                           ({port.os_accuracy}%)
                         </span>
@@ -463,10 +475,10 @@ function PortRow({
 function HttpServiceCard({ service }: { service: WhatWebEntry }) {
   const status = service.http_status ?? 200;
   const statusColor =
-    status < 300 ? "#5fed83" : status < 400 ? "#f0c000" : "#ef4444";
+    status < 300 ? "#e8d5c0" : status < 400 ? "var(--state-warn)" : "var(--state-danger)";
   const statusBg =
     status < 300
-      ? "rgba(95,237,131,0.2)"
+      ? "rgba(232,213,192,0.2)"
       : status < 400
         ? "rgba(240,192,0,0.2)"
         : "rgba(239,68,68,0.2)";
@@ -481,7 +493,7 @@ function HttpServiceCard({ service }: { service: WhatWebEntry }) {
         <div className="http-card-id">
           <div
             className="port-status-dot"
-            style={{ background: "#5fed83", boxShadow: "0 0 6px #5fed83" }}
+            style={{ background: "#e8d5c0", boxShadow: "0 0 6px #e8d5c0" }}
           />
           <span className="http-card-port">:{service.port}</span>
           {service.http_status != null && (
@@ -531,7 +543,7 @@ function HttpServiceCard({ service }: { service: WhatWebEntry }) {
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: "0.1em",
-              color: "#818b98",
+              color: "var(--color-text-muted)",
               marginBottom: 10,
               fontWeight: 700,
             }}
@@ -550,7 +562,7 @@ function HttpServiceCard({ service }: { service: WhatWebEntry }) {
       <div
         style={{
           fontSize: 11,
-          color: "#818b98",
+          color: "var(--color-text-muted)",
           marginTop: 12,
           fontFamily: "JetBrains Mono, monospace",
         }}
@@ -563,13 +575,13 @@ function HttpServiceCard({ service }: { service: WhatWebEntry }) {
 
 function DnsRecordsCard({ dns }: { dns: DnsRecord }) {
   const recordTypes = [
-    { label: "A", values: dns.a || [], color: "#5fed83" },
-    { label: "AAAA", values: dns.aaaa || [], color: "#8dd6ff" },
-    { label: "CNAME", values: dns.cname || [], color: "#a78bfa" },
-    { label: "MX", values: dns.mx || [], color: "#f0c000" },
-    { label: "NS", values: dns.ns || [], color: "#8c93fb" },
-    { label: "TXT", values: dns.txt || [], color: "#a4aea6" },
-    { label: "PTR", values: dns.ptr || [], color: "#f97316" },
+    { label: "A", values: dns.a || [], color: "var(--state-ok)" },
+    { label: "AAAA", values: dns.aaaa || [], color: "var(--color-champagne-deep)" },
+    { label: "CNAME", values: dns.cname || [], color: "var(--color-champagne)" },
+    { label: "MX", values: dns.mx || [], color: "var(--state-warn)" },
+    { label: "NS", values: dns.ns || [], color: "var(--color-champagne-soft)" },
+    { label: "TXT", values: dns.txt || [], color: "var(--color-text-soft)" },
+    { label: "PTR", values: dns.ptr || [], color: "var(--state-active)" },
   ].filter((r) => r.values.length > 0);
 
   if (recordTypes.length === 0) return null;
@@ -591,7 +603,7 @@ function DnsRecordsCard({ dns }: { dns: DnsRecord }) {
           >
             <div className="dns-record-type" style={{ color: record.color }}>
               {record.label}{" "}
-              <span style={{ color: "#818b98", fontWeight: 400 }}>
+              <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
                 ({record.values.length})
               </span>
             </div>
@@ -630,10 +642,10 @@ function SslCertificatesCard({ certs }: { certs: SslCert[] }) {
             !isExpired &&
             new Date(cert.not_after).getTime() - Date.now() < 30 * 86400000;
           const statusColor = isExpired
-            ? "#ef4444"
+            ? "var(--state-danger)"
             : expiresSoon
-              ? "#f0c000"
-              : "#5fed83";
+              ? "var(--state-warn)"
+              : "#e8d5c0";
           const statusBg = `${statusColor}20`;
           const statusText = isExpired
             ? "EXPIRED"
@@ -644,12 +656,12 @@ function SslCertificatesCard({ certs }: { certs: SslCert[] }) {
             ? "rgba(239,68,68,0.3)"
             : expiresSoon
               ? "rgba(240,192,0,0.3)"
-              : "rgba(95,237,131,0.3)";
+              : "rgba(232,213,192,0.3)";
           const headerBg = isExpired
             ? "rgba(239,68,68,0.08)"
             : expiresSoon
               ? "rgba(240,192,0,0.08)"
-              : "rgba(95,237,131,0.08)";
+              : "rgba(232,213,192,0.08)";
           const domains = extractDomainFromSubject(cert.subject);
 
           return (
@@ -717,7 +729,7 @@ function SslCertificatesCard({ certs }: { certs: SslCert[] }) {
                       </td>
                       <td
                         className="detail-value-muted"
-                        style={{ color: isExpired ? "#ef4444" : undefined }}
+                        style={{ color: isExpired ? "var(--state-danger)" : undefined }}
                       >
                         {formatDate(cert.not_after)}
                       </td>
@@ -884,12 +896,12 @@ function SvgIcon({ name }: { name: string }) {
 
 export default function HostDetailPage() {
   const params = useParams();
-  // decodeURIComponent здесь нужен, так как Next.js может передать закодированный параметр
   const ip = decodeURIComponent(params.ip as string);
 
   const [clusters, setClusters] = useState<ScanCluster[]>([]);
   const [dns, setDns] = useState<DnsRecord | null>(null);
   const [fuzzing, setFuzzing] = useState<FuzzEntry[]>([]);
+  const [geo, setGeo] = useState<GeoInfo | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -898,9 +910,7 @@ export default function HostDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        // ИСПРАВЛЕНО: убран encodeURIComponent.
-        // Catch-all роут прокси [/api/proxy/[...path]] корректно передает сегменты пути.
-        // Ручное кодирование вызывало double-encoding и 404 от бэкенда.
+        // Путь передаётся прокси как есть — без encodeURIComponent (иначе double-encoding → 404).
         const res = await fetch(`/api/proxy/api/host/${ip}`, {
           cache: "no-store",
         });
@@ -909,22 +919,34 @@ export default function HostDetailPage() {
 
         const json = await res.json();
 
-        // Защита от неожиданной структуры ответа
+        // Терпимость к форме ответа: поля могут лежать в корне или под data.
         const nmapData: NmapEntry[] =
           json.open_ports || json.data?.open_ports || [];
         const whatwebData: WhatWebEntry[] =
           json.web_services || json.data?.web_services || [];
+        // Backend sends headers as a JSON string; parse into a record.
+        for (const w of whatwebData) {
+          if (typeof w.headers === "string") {
+            try {
+              w.headers = w.headers ? JSON.parse(w.headers) : undefined;
+            } catch {
+              w.headers = undefined;
+            }
+          }
+        }
         const screenshotsData: ScreenshotEntry[] =
           json.screenshots || json.data?.screenshots || [];
         const sslData: SslCert[] = json.ssl || json.data?.ssl || [];
         const dnsData: DnsRecord | null = json.dns || json.data?.dns || null;
         const fuzzingData: FuzzEntry[] = json.fuzzing || json.data?.fuzzing || [];
+        const geoData: GeoInfo | null = json.geo || json.data?.geo || null;
 
         setClusters(
           clusterEvents(nmapData, whatwebData, screenshotsData, sslData),
         );
         setDns(dnsData);
         setFuzzing(fuzzingData);
+        setGeo(geoData && geoData.country ? geoData : null);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -1011,6 +1033,7 @@ export default function HostDetailPage() {
     { id: "overview", label: "Overview", icon: "overview" },
     { id: "ports", label: "Ports", icon: "ports" },
     { id: "web", label: "Web Services", icon: "web" },
+    { id: "headers", label: "HTTP Headers", icon: "web" },
     { id: "fuzzing", label: "Fuzzing", icon: "web" },
     { id: "ssl", label: "SSL/TLS", icon: "ssl" },
     { id: "dns", label: "DNS", icon: "dns" },
@@ -1055,10 +1078,10 @@ export default function HostDetailPage() {
                   const sslCount = cluster.ssl.length;
                   const scanColor =
                     openCount > 0
-                      ? "#5fed83"
+                      ? "#e8d5c0"
                       : webCount > 0
-                        ? "#8dd6ff"
-                        : "#818b98";
+                        ? "#d9c4a9"
+                        : "var(--color-text-muted)";
                   return (
                     <button
                       key={i}
@@ -1089,7 +1112,7 @@ export default function HostDetailPage() {
                           <div
                             style={{
                               fontSize: 9,
-                              color: "#818b98",
+                              color: "var(--color-text-muted)",
                               marginTop: 1,
                             }}
                           >
@@ -1108,102 +1131,103 @@ export default function HostDetailPage() {
         </div>
 
         <div className="host-content">
-          <div
-            className="card-panel"
-            style={{
-              padding: "16px 24px",
-              marginBottom: 24,
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              flexWrap: "wrap",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                color: "#818b98",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
-              History
-            </span>
-            <div style={{ display: "flex", gap: 4 }}>
+          <div className="timemachine">
+            <div className="tm-head">
               <button
-                className="secondary-btn"
-                style={{ padding: "6px 10px", fontSize: 12, lineHeight: 1 }}
-                disabled={selectedIndex === 0}
-                onClick={() => setSelectedIndex(Math.max(0, selectedIndex - 1))}
-              >
-                ◀
-              </button>
-              <select
-                value={selectedIndex}
-                onChange={(e) => setSelectedIndex(Number(e.target.value))}
-                className="search-select"
-                style={{
-                  fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 12,
-                  minWidth: 220,
-                  padding: "6px 12px",
-                }}
-              >
-                {clusters.map((cluster, i) => {
-                  const openCount = cluster.nmap.filter(
-                    (r) => r.state === "open",
-                  ).length;
-                  const webCount = cluster.whatweb.length;
-                  const sslCount = cluster.ssl.length;
-                  const summary = [
-                    openCount > 0 ? `${openCount}p` : "",
-                    webCount > 0 ? `${webCount}w` : "",
-                    sslCount > 0 ? `${sslCount}s` : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
-                  return (
-                    <option key={i} value={i}>
-                      {formatRelative(cluster.centerTime)} —{" "}
-                      {summary || "no data"}
-                    </option>
-                  );
-                })}
-              </select>
-              <button
-                className="secondary-btn"
-                style={{ padding: "6px 10px", fontSize: 12, lineHeight: 1 }}
+                className="snapshot-nav"
                 disabled={selectedIndex === clusters.length - 1}
                 onClick={() =>
-                  setSelectedIndex(
-                    Math.min(clusters.length - 1, selectedIndex + 1),
-                  )
+                  setSelectedIndex(Math.min(clusters.length - 1, selectedIndex + 1))
                 }
+                aria-label="Older snapshot"
+                title="Older scan"
               >
-                ▶
+                ‹
               </button>
+
+              <div className="tm-current">
+                <span className="tm-badge">TIME MACHINE</span>
+                <span className="tm-when">
+                  {formatRelative(clusters[selectedIndex]?.centerTime)}
+                </span>
+                <span className="tm-date">
+                  {formatDate(clusters[selectedIndex]?.centerTime)}
+                </span>
+              </div>
+
+              <button
+                className="snapshot-nav"
+                disabled={selectedIndex === 0}
+                onClick={() => setSelectedIndex(Math.max(0, selectedIndex - 1))}
+                aria-label="Newer snapshot"
+                title="Newer scan"
+              >
+                ›
+              </button>
+
+              <div className="tm-epoch">
+                <select
+                  className="tm-select"
+                  value={selectedIndex}
+                  onChange={(e) => setSelectedIndex(Number(e.target.value))}
+                  aria-label="Jump to scan epoch"
+                >
+                  {clusters.map((c, i) => {
+                    const open = c.nmap.filter((r) => r.state === "open").length;
+                    return (
+                      <option key={i} value={i}>
+                        {`${formatDate(c.centerTime)} · ${open} open · ${c.whatweb.length} web`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <span className="snapshot-count">
+                {selectedIndex + 1}
+                <span className="snapshot-count-total"> / {clusters.length}</span>
+              </span>
             </div>
-            <span
-              style={{
-                fontSize: 11,
-                color: "#818b98",
-                fontFamily: "JetBrains Mono, monospace",
-              }}
-            >
-              {selectedIndex + 1} / {clusters.length}
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                color: "#818b98",
-                fontFamily: "JetBrains Mono, monospace",
-                marginLeft: "auto",
-              }}
-            >
-              {formatDate(clusters[selectedIndex]?.centerTime)}
-            </span>
+
+            {clusters.length > 1 && (
+              <div
+                className="tm-rail"
+                role="tablist"
+                aria-label="Scan history timeline"
+              >
+                <div className="tm-rail-line" />
+                {(() => {
+                  const times = clusters.map((c) => c.centerTime);
+                  const max = Math.max(...times);
+                  const min = Math.min(...times);
+                  const span = max - min || 1;
+                  return clusters.map((cluster, i) => {
+                    const open = cluster.nmap.filter(
+                      (r) => r.state === "open",
+                    ).length;
+                    // Position each mark by its real timestamp; newest on the right.
+                    const pct = ((cluster.centerTime - min) / span) * 100;
+                    return (
+                      <button
+                        key={i}
+                        role="tab"
+                        aria-selected={i === selectedIndex}
+                        className={`tm-mark${i === selectedIndex ? " is-active" : ""}`}
+                        style={{ left: `${pct}%` }}
+                        onClick={() => setSelectedIndex(i)}
+                        title={`${formatRelative(cluster.centerTime)} · ${open} open · ${cluster.whatweb.length} web`}
+                      />
+                    );
+                  });
+                })()}
+                <span className="tm-rail-end tm-rail-oldest">
+                  {formatRelative(clusters[clusters.length - 1]?.centerTime)}
+                </span>
+                <span className="tm-rail-end tm-rail-newest">
+                  {formatRelative(clusters[0]?.centerTime)}
+                </span>
+              </div>
+            )}
           </div>
 
           {activeSection === "overview" && (
@@ -1213,55 +1237,55 @@ export default function HostDetailPage() {
                 <h1 className="host-hero-ip">{ip}</h1>
                 <div className="metrics-grid">
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#5fed83" }}>
+                    <div className="metric-value" style={{ color: "var(--state-ok)" }}>
                       {openPorts.length}
                     </div>
                     <div className="metric-label">Open Ports</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#f0c000" }}>
+                    <div className="metric-value" style={{ color: "var(--state-warn)" }}>
                       {filteredPorts.length}
                     </div>
                     <div className="metric-label">Filtered</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#ef4444" }}>
+                    <div className="metric-value" style={{ color: "var(--state-danger)" }}>
                       {closedPorts.length}
                     </div>
                     <div className="metric-label">Closed</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#8c93fb" }}>
+                    <div className="metric-value" style={{ color: "var(--color-champagne)" }}>
                       {current.whatweb.length}
                     </div>
                     <div className="metric-label">Web Services</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#8dd6ff" }}>
+                    <div className="metric-value" style={{ color: "var(--color-champagne-deep)" }}>
                       {allTechs.length}
                     </div>
                     <div className="metric-label">Technologies</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#f97316" }}>
+                    <div className="metric-value" style={{ color: "var(--state-active)" }}>
                       {current.ssl.length}
                     </div>
                     <div className="metric-label">SSL/TLS</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#a78bfa" }}>
+                    <div className="metric-value" style={{ color: "var(--color-champagne-soft)" }}>
                       {dnsRecordCount}
                     </div>
                     <div className="metric-label">DNS Records</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#f0c000" }}>
+                    <div className="metric-value" style={{ color: "var(--state-warn)" }}>
                       {fuzzing.length}
                     </div>
                     <div className="metric-label">Discovered Paths</div>
                   </div>
                   <div className="metric">
-                    <div className="metric-value" style={{ color: "#818b98" }}>
+                    <div className="metric-value" style={{ color: "var(--color-text-muted)" }}>
                       {clusters.length}
                     </div>
                     <div className="metric-label">Scans</div>
@@ -1290,13 +1314,62 @@ export default function HostDetailPage() {
 
               {allTechs.length > 0 && (
                 <div className="card-panel" style={{ padding: "16px 20px", marginTop: 20 }}>
-                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#818b98", marginBottom: 12, fontWeight: 700 }}>
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-text-muted)", marginBottom: 12, fontWeight: 700 }}>
                     Technology Stack
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {allTechs.map((t) => (
                       <span key={t} className="tech-badge">{t}</span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {geo && (
+                <div className="card-panel geo-panel" style={{ padding: "16px 20px", marginTop: 20 }}>
+                  <div className="geo-panel-title">Geolocation & Network</div>
+                  <div className="geo-grid">
+                    {geo.country && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">Country</div>
+                        <div className="geo-item-value">
+                          {geo.country}
+                          {geo.country_code ? ` (${geo.country_code})` : ""}
+                        </div>
+                      </div>
+                    )}
+                    {geo.city && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">City</div>
+                        <div className="geo-item-value">{geo.city}</div>
+                      </div>
+                    )}
+                    {geo.asn && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">ASN</div>
+                        <div className="geo-item-value">{geo.asn}</div>
+                      </div>
+                    )}
+                    {geo.org && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">Organization</div>
+                        <div className="geo-item-value">{geo.org}</div>
+                      </div>
+                    )}
+                    {geo.isp && geo.isp !== geo.org && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">ISP</div>
+                        <div className="geo-item-value">{geo.isp}</div>
+                      </div>
+                    )}
+                    {geo.lat != null && geo.lon != null && (geo.lat !== 0 || geo.lon !== 0) && (
+                      <div className="geo-item">
+                        <div className="geo-item-label">Coordinates</div>
+                        <div className="geo-item-value">
+                          {geo.lat.toFixed(4)}, {geo.lon.toFixed(4)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1307,13 +1380,13 @@ export default function HostDetailPage() {
             <div className="animate-fade-in">
               <h2 className="section-heading">Network Services</h2>
               <div className="legend-row">
-                <span className="legend-item" style={{ color: "#5fed83" }}>
+                <span className="legend-item" style={{ color: "#e8d5c0" }}>
                   ● {openPorts.length} open
                 </span>
-                <span className="legend-item" style={{ color: "#f0c000" }}>
+                <span className="legend-item" style={{ color: "var(--state-warn)" }}>
                   ● {filteredPorts.length} filtered
                 </span>
-                <span className="legend-item" style={{ color: "#ef4444" }}>
+                <span className="legend-item" style={{ color: "var(--state-danger)" }}>
                   ● {closedPorts.length} closed
                 </span>
               </div>
@@ -1337,6 +1410,38 @@ export default function HostDetailPage() {
             </div>
           )}
 
+          {activeSection === "headers" && (
+            <div className="animate-fade-in">
+              <h2 className="section-heading">HTTP Response Headers</h2>
+              {current.whatweb.filter((w) => w.headers && Object.keys(w.headers).length > 0).length === 0 ? (
+                <div className="empty-inline">No headers captured in this scan.</div>
+              ) : (
+                current.whatweb
+                  .filter((w) => w.headers && Object.keys(w.headers).length > 0)
+                  .map((w, i) => (
+                    <div key={i} className="card-panel headers-card">
+                      <div className="headers-card-head">
+                        <span className="headers-port">:{w.port}</span>
+                        <span className="headers-url">{w.url}</span>
+                      </div>
+                      <table className="headers-table">
+                        <tbody>
+                          {Object.entries(w.headers || {})
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([k, v]) => (
+                              <tr key={k}>
+                                <td className="headers-key">{k}</td>
+                                <td className="headers-val">{v}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))
+              )}
+            </div>
+          )}
+
           {activeSection === "ssl" && (
             <div className="animate-fade-in">
               <SslCertificatesCard certs={current.ssl} />
@@ -1347,7 +1452,7 @@ export default function HostDetailPage() {
             <div className="animate-fade-in">
               <h2 className="section-heading">Discovered Paths</h2>
               {fuzzing.length === 0 ? (
-                <p style={{ color: "#818b98", fontSize: 13, padding: 20 }}>
+                <p style={{ color: "var(--color-text-muted)", fontSize: 13, padding: 20 }}>
                   No paths discovered by fuzzing.
                 </p>
               ) : (
@@ -1355,10 +1460,10 @@ export default function HostDetailPage() {
                   {fuzzing.map((f, i) => (
                     <div key={i} className="card-panel" style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span className="badge" style={{ background: "#5fed8320", color: "#5fed83", minWidth: 40, textAlign: "center" }}>
+                        <span className="badge" style={{ background: "#e8d5c020", color: "#e8d5c0", minWidth: 40, textAlign: "center" }}>
                           {f.http_status}
                         </span>
-                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, color: "#8dd6ff" }}>
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, color: "#d9c4a9" }}>
                           {f.port}
                         </span>
                         <code style={{ fontSize: 13, color: "#e4e7eb", wordBreak: "break-all" }}>
@@ -1369,7 +1474,7 @@ export default function HostDetailPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="external-link"
-                          style={{ marginLeft: "auto", fontSize: 11, color: "#818b98", textDecoration: "underline" }}
+                          style={{ marginLeft: "auto", fontSize: 11, color: "var(--color-text-muted)", textDecoration: "underline" }}
                         >
                           open ↗
                         </a>

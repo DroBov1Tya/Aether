@@ -53,11 +53,12 @@ function AuthFormInner() {
         width: "100%",
         maxWidth: 420,
         padding: 48,
-        background: "rgba(22,27,34,0.85)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(140,147,251,0.2)",
-        borderRadius: 16,
-        boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.02), transparent 30%), #0c0c0f",
+        border: "1px solid rgba(241,207,180,0.14)",
+        borderRadius: 18,
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.04), 0 30px 70px rgba(0,0,0,0.7)",
       }}
     >
       <div style={{ textAlign: "center", marginBottom: 36 }}>
@@ -66,7 +67,7 @@ function AuthFormInner() {
             fontSize: 36,
             fontWeight: 800,
             fontFamily: "JetBrains Mono, monospace",
-            background: "linear-gradient(135deg, #8c93fb 0%, #5fed83 100%)",
+            background: "linear-gradient(140deg, #fbf7f2 0%, #f1cfb4 60%, #d9bda0 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             marginBottom: 12,
@@ -114,14 +115,15 @@ function AuthFormInner() {
             style={{
               width: "100%",
               padding: "14px 18px",
-              background: "rgba(0,0,0,0.4)",
-              border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(140,147,251,0.3)"}`,
-              borderRadius: 10,
-              color: "#f0f6fc",
+              background: "#050506",
+              border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(241,207,180,0.25)"}`,
+              borderRadius: 11,
+              color: "#f3f0eb",
               fontFamily: "JetBrains Mono, monospace",
               fontSize: 14,
               letterSpacing: "0.2em",
               outline: "none",
+              boxShadow: "inset 0 1px 4px rgba(0,0,0,0.5)",
               transition: "all 0.2s",
             }}
             autoFocus
@@ -153,11 +155,11 @@ function AuthFormInner() {
             padding: "16px",
             background:
               loading || !code.trim()
-                ? "rgba(140,147,251,0.2)"
-                : "linear-gradient(135deg, rgba(140,147,251,0.8) 0%, rgba(95,237,131,0.8) 100%)",
-            border: "none",
-            borderRadius: 10,
-            color: "#f0f6fc",
+                ? "rgba(241,207,180,0.16)"
+                : "linear-gradient(140deg, #f3d4ba 0%, #e4c1a4 52%, #d4b294 100%)",
+            border: "1px solid rgba(255,240,226,0.28)",
+            borderRadius: 11,
+            color: loading || !code.trim() ? "#7c746a" : "#1a1510",
             fontFamily: "JetBrains Mono, monospace",
             fontSize: 13,
             fontWeight: 700,
@@ -175,7 +177,7 @@ function AuthFormInner() {
         style={{
           marginTop: 28,
           paddingTop: 20,
-          borderTop: "1px solid rgba(140,147,251,0.1)",
+          borderTop: "1px solid rgba(241,207,180,0.1)",
           textAlign: "center",
           fontSize: 10,
           color: "#818b98",
