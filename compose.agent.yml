@@ -15,6 +15,11 @@ services:
     build:
       context: ./agent
     restart: always
+    # masscan needs raw sockets for its user-mode TCP/IP stack (bypasses
+    # the kernel conntrack table). Only granted; drop if masscan is unused.
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     environment:
       RUST_LOG: ${RUST_LOG:-info}
       TZ: ${TZ:-Europe/Moscow}
@@ -22,9 +27,16 @@ services:
       # MUST point at the central backend's reachable address.
       EXTERNAL_SERVER_PATH: ${EXTERNAL_SERVER_PATH}
       API_KEY: ${API_KEY}
+      ENROLL_TOKEN: ${ENROLL_TOKEN:-}
+      AGENT_NAME: ${AGENT_NAME:-}
       SCANS_OUTPUT_PATH: ${SCANS_OUTPUT_PATH:-scans_output}
       MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS:-3}
       MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-10}
+      RUSTSCAN_MAX_BATCH: ${RUSTSCAN_MAX_BATCH:-100}
+      MASSCAN_ENABLED: ${MASSCAN_ENABLED:-false}
+      MASSCAN_MAX_RATE: ${MASSCAN_MAX_RATE:-1000}
+      MASSCAN_PORTS: ${MASSCAN_PORTS:-80,443,8080,8443,22,21,25,3389,3306,5432,6379,9200,27017}
+      MASSCAN_EXTRA_ARGS: ${MASSCAN_EXTRA_ARGS:-}
       SCAN_COOLDOWN: ${SCAN_COOLDOWN:-60}
       HXN_DELAY: ${HXN_DELAY:-5}
       HTTPX_THREADS: ${HTTPX_THREADS:-50}

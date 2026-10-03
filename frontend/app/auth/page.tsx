@@ -55,7 +55,7 @@ function AuthFormInner() {
         padding: 48,
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.02), transparent 30%), #0c0c0f",
-        border: "1px solid rgba(241,207,180,0.14)",
+        border: "1px solid rgba(233, 184, 114,0.14)",
         borderRadius: 18,
         boxShadow:
           "inset 0 1px 0 rgba(255,255,255,0.04), 0 30px 70px rgba(0,0,0,0.7)",
@@ -67,7 +67,7 @@ function AuthFormInner() {
             fontSize: 36,
             fontWeight: 800,
             fontFamily: "JetBrains Mono, monospace",
-            background: "linear-gradient(140deg, #fbf7f2 0%, #f1cfb4 60%, #d9bda0 100%)",
+            background: "linear-gradient(140deg, #f5efe4 0%, #e9b872 60%, #d9bda0 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             marginBottom: 12,
@@ -78,7 +78,7 @@ function AuthFormInner() {
         </div>
         <div
           style={{
-            color: "#818b98",
+            color: "#89806f",
             fontSize: 12,
             fontFamily: "JetBrains Mono, monospace",
             textTransform: "uppercase",
@@ -95,7 +95,7 @@ function AuthFormInner() {
             style={{
               display: "block",
               fontSize: 11,
-              color: "#818b98",
+              color: "#89806f",
               textTransform: "uppercase",
               letterSpacing: "0.1em",
               marginBottom: 10,
@@ -116,9 +116,9 @@ function AuthFormInner() {
               width: "100%",
               padding: "14px 18px",
               background: "#050506",
-              border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(241,207,180,0.25)"}`,
+              border: `1px solid ${error ? "rgba(221, 156, 143,0.5)" : "rgba(233, 184, 114,0.25)"}`,
               borderRadius: 11,
-              color: "#f3f0eb",
+              color: "#f5efe4",
               fontFamily: "JetBrains Mono, monospace",
               fontSize: 14,
               letterSpacing: "0.2em",
@@ -134,10 +134,10 @@ function AuthFormInner() {
           <div
             style={{
               padding: "12px 16px",
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.3)",
+              background: "rgba(221, 156, 143,0.1)",
+              border: "1px solid rgba(221, 156, 143,0.3)",
               borderRadius: 8,
-              color: "#ef4444",
+              color: "#dd9c8f",
               fontSize: 12,
               marginBottom: 20,
               fontFamily: "JetBrains Mono, monospace",
@@ -155,9 +155,9 @@ function AuthFormInner() {
             padding: "16px",
             background:
               loading || !code.trim()
-                ? "rgba(241,207,180,0.16)"
-                : "linear-gradient(140deg, #f3d4ba 0%, #e4c1a4 52%, #d4b294 100%)",
-            border: "1px solid rgba(255,240,226,0.28)",
+                ? "rgba(233, 184, 114,0.16)"
+                : "linear-gradient(140deg, #f6d9a6 0%, #e0a35a 52%, #d4b294 100%)",
+            border: "1px solid rgba(246, 217, 166,0.28)",
             borderRadius: 11,
             color: loading || !code.trim() ? "#7c746a" : "#1a1510",
             fontFamily: "JetBrains Mono, monospace",
@@ -177,10 +177,10 @@ function AuthFormInner() {
         style={{
           marginTop: 28,
           paddingTop: 20,
-          borderTop: "1px solid rgba(241,207,180,0.1)",
+          borderTop: "1px solid rgba(233, 184, 114,0.1)",
           textAlign: "center",
           fontSize: 10,
-          color: "#818b98",
+          color: "#89806f",
           fontFamily: "JetBrains Mono, monospace",
           letterSpacing: "0.05em",
         }}
@@ -203,7 +203,7 @@ export default function AuthPage() {
     >
       <Suspense
         fallback={
-          <div style={{ color: "#818b98", fontFamily: "JetBrains Mono" }}>
+          <div style={{ color: "#89806f", fontFamily: "JetBrains Mono" }}>
             Loading...
           </div>
         }

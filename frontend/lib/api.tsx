@@ -433,6 +433,18 @@ export async function deleteAllProxies() {
   return res.json().catch(() => ({}));
 }
 
+/** Update an agent's max concurrent scan capacity (applied live via heartbeat). */
+export async function updateAgentConcurrency(agentId: string, max: number) {
+  if (IS_SERVER) throw new Error("updateAgentConcurrency can only be called from client");
+  const res = await fetch(`${API_BASE}/api/agents/${encodeURIComponent(agentId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ max_concurrent_tasks: max }),
+  });
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json().catch(() => ({}));
+}
+
 // ---- Geo / country → ASN → CIDR ----
 
 export interface CountryAsn {

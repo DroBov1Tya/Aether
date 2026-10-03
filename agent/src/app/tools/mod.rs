@@ -6,6 +6,7 @@ pub mod fuzzing;
 pub mod geo;
 pub mod httpx;
 pub mod hxn;
+pub mod masscan;
 pub mod nmap;
 pub mod nuclei;
 pub mod proxy;

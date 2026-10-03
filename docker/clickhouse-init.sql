@@ -20,6 +20,17 @@ PARTITION BY agent_id
 ORDER BY (agent_id, last_seen_at)
 TTL created_at + INTERVAL 30 DAY;
 
+CREATE TABLE IF NOT EXISTS aether.enrollment_tokens (
+    token_hash  String,
+    label       String DEFAULT '',
+    max_uses    UInt32 DEFAULT 0,
+    uses        UInt32 DEFAULT 0,
+    expires_at  Nullable(DateTime),
+    revoked     UInt8 DEFAULT 0,
+    created_at  DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(created_at)
+ORDER BY token_hash;
+
 CREATE TABLE IF NOT EXISTS aether.task_queue (
     id           UInt64,
     task_id      String,
@@ -63,6 +74,16 @@ ORDER BY id;
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS aether.scan_results_rustscan (
+    target      String,
+    ports       Array(UInt16),
+    country     Nullable(String),
+    project     String DEFAULT 'global',
+    scan_uid    String,
+    scanned_at  DateTime DEFAULT now()
+) ENGINE = MergeTree()
+ORDER BY (project, target, scanned_at);
+
+CREATE TABLE IF NOT EXISTS aether.scan_results_masscan (
     target      String,
     ports       Array(UInt16),
     country     Nullable(String),

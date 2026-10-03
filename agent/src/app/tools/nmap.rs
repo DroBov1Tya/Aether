@@ -43,8 +43,18 @@ pub async fn run_nmap(
     let out_dir = Path::new(scans_output_path);
     fs::create_dir_all(out_dir).await?;
 
-    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let xml_path = format!("{}/scan_{}.xml", scans_output_path, timestamp);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let safe_target: String = target
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    let xml_path = format!(
+        "{}/scan_{}_{}_{}.xml",
+        scans_output_path, scan_uid, safe_target, nanos
+    );
     let mut http_services: Vec<String> = Vec::new();
 
     let mut cmd = Command::new("nmap");
@@ -154,6 +164,8 @@ pub async fn run_nmap(
             }
         }
     }
+
+    let _ = fs::remove_file(&xml_path).await;
 
     let cooldown = crate::config::cfg().scan_cooldown;
     if cooldown > 0 {

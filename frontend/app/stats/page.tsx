@@ -27,7 +27,7 @@ function BarRow({
         style={{
           fontFamily: "JetBrains Mono",
           fontSize: 13,
-          color: "#f3f0eb",
+          color: "#f5efe4",
           minWidth: 140,
         }}
       >
@@ -47,9 +47,9 @@ function BarRow({
           style={{
             width: pct,
             height: "100%",
-            background: "linear-gradient(90deg, rgba(241,207,180,0.5), #f1cfb4)",
+            background: "linear-gradient(90deg, rgba(233, 184, 114,0.5), #e9b872)",
             borderRadius: 4,
-            boxShadow: "0 0 10px rgba(241,207,180,0.25)",
+            boxShadow: "0 0 10px rgba(233, 184, 114,0.25)",
           }}
         />
       </div>
@@ -57,7 +57,7 @@ function BarRow({
         style={{
           fontFamily: "JetBrains Mono",
           fontSize: 13,
-          color: "#9a938c",
+          color: "#89806f",
           minWidth: 60,
           textAlign: "right",
         }}
@@ -167,7 +167,7 @@ export default async function StatsPage() {
             {techs.map((t) => (
               <div key={t.technology} className="tech-stat-pill">
                 <span>{t.technology}</span>
-                <span style={{ color: "#f1cfb4", marginLeft: 6 }}>
+                <span style={{ color: "#e9b872", marginLeft: 6 }}>
                   {formatNumber(t.count)}
                 </span>
               </div>

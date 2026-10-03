@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5efe4"/>
+      <stop offset="45%" stop-color="#e9b872"/>
+      <stop offset="100%" stop-color="#c2884a"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#08090b"/>
+  <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="6.4" fill="none" stroke="#e9b872" stroke-opacity="0.22" stroke-width="1"/>
+  <!-- radar sweep arcs -->
+  <path d="M16 24 A8 8 0 0 1 16 8" fill="none" stroke="url(#amber)" stroke-opacity="0.35" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M16 21 A5 5 0 0 1 16 11" fill="none" stroke="url(#amber)" stroke-opacity="0.55" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- monogram A -->
+  <path d="M11 23 L16 9 L21 23" fill="none" stroke="url(#amber)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13 18 L19 18" fill="none" stroke="url(#amber)" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

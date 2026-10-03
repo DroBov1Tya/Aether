@@ -128,7 +128,7 @@ services:
   agent:
     build:
       context: ./agent
-    restart: always
+    restart: "no"
     depends_on:
       backend:
         condition: service_started
@@ -141,6 +141,11 @@ services:
       SCANS_OUTPUT_PATH: ${SCANS_OUTPUT_PATH}
       MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS}
       MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS}
+      RUSTSCAN_MAX_BATCH: ${RUSTSCAN_MAX_BATCH:-100}
+      MASSCAN_ENABLED: ${MASSCAN_ENABLED:-false}
+      MASSCAN_MAX_RATE: ${MASSCAN_MAX_RATE:-100}
+      MASSCAN_PORTS: ${MASSCAN_PORTS:-80,443,8080,8443,22,21,25,3389,3306,5432,6379,9200,27017}
+      MASSCAN_EXTRA_ARGS: ${MASSCAN_EXTRA_ARGS:-}
       SCAN_COOLDOWN: ${SCAN_COOLDOWN}
       HXN_DELAY: ${HXN_DELAY}
       HTTPX_THREADS: ${HTTPX_THREADS}

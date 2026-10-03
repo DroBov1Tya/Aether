@@ -42,7 +42,7 @@ pub async fn run_pipeline(
     target: &str,
     task_uid: Option<&str>,
     settings: &ScanSettings,
-) {
+) -> bool {
     let scan_uid = Uuid::new_v4().to_string();
     let permits = state.scan_permits.clone();
 
@@ -50,7 +50,7 @@ pub async fn run_pipeline(
         Ok(p) => p,
         Err(_) => {
             tracing::warn!("scan semaphore closed, dropping {}", target);
-            return;
+            return false;
         }
     };
 
@@ -64,14 +64,45 @@ pub async fn run_pipeline(
         tracing::info!("proxy pool loaded: {} entries", pool.len());
     }
 
-    let ports: Vec<i64> = match run_rustscan_ladder(state, target, &scan_uid, task_uid, settings, &pool).await {
-        Some(p) => {
-            tracing::info!("✅ rustscan  {}  ports={:?}", target, p);
-            p
+    let ports: Vec<i64> = {
+        let mut masscan_ports: Vec<i64> = Vec::new();
+        if state.cfg.masscan_enabled {
+            match tools::masscan::run_masscan(
+                &state.cfg.external_server_path,
+                target,
+                &scan_uid,
+                task_uid,
+                &state.cfg.masscan_ports,
+                state.cfg.masscan_max_rate,
+                &state.cfg.scans_output_path,
+                &state.cfg.api_key,
+            )
+            .await
+            {
+                Ok(map) => {
+                    let mut all: Vec<i64> = map.values().flatten().copied().collect();
+                    all.sort_unstable();
+                    all.dedup();
+                    tracing::info!("✅ masscan  {}  hosts={} ports={:?}", target, map.len(), all);
+                    masscan_ports = all;
+                }
+                Err(e) => tracing::warn!("❌ masscan  {}  err={e}", target),
+            }
         }
-        None => {
-            tracing::warn!("❌ rustscan  {}  all attempts failed", target);
-            return;
+
+        if !masscan_ports.is_empty() {
+            masscan_ports
+        } else {
+            match run_rustscan_ladder(state, target, &scan_uid, task_uid, settings, &pool).await {
+                Some(p) => {
+                    tracing::info!("✅ rustscan  {}  ports={:?}", target, p);
+                    p
+                }
+                None => {
+                    tracing::warn!("❌ rustscan  {}  all attempts failed", target);
+                    return false;
+                }
+            }
         }
     };
 
@@ -226,6 +257,8 @@ pub async fn run_pipeline(
             Err(e) => tracing::warn!("❌ whois  {}  err={e}", root),
         }
     }
+
+    true
 }
 
 /// rustscan ladder: direct first, then each pool proxy in order. rustscan
@@ -311,7 +344,7 @@ pub async fn start_scan(
     let settings = ScanSettings::default();
 
     tokio::task::spawn(async move {
-        run_pipeline(&state, &target, task_uid.as_deref(), &settings).await;
+        let _ = run_pipeline(&state, &target, task_uid.as_deref(), &settings).await;
     });
 
     (

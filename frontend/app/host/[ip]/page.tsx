@@ -275,7 +275,7 @@ function PortRow({
 
   const stateColor =
     port.state === "open"
-      ? "#e8d5c0"
+      ? "#f6d9a6"
       : port.state === "filtered"
         ? "var(--state-warn)"
         : port.state === "closed"
@@ -475,13 +475,13 @@ function PortRow({
 function HttpServiceCard({ service }: { service: WhatWebEntry }) {
   const status = service.http_status ?? 200;
   const statusColor =
-    status < 300 ? "#e8d5c0" : status < 400 ? "var(--state-warn)" : "var(--state-danger)";
+    status < 300 ? "#f6d9a6" : status < 400 ? "var(--state-warn)" : "var(--state-danger)";
   const statusBg =
     status < 300
-      ? "rgba(232,213,192,0.2)"
+      ? "rgba(246, 217, 166,0.2)"
       : status < 400
-        ? "rgba(240,192,0,0.2)"
-        : "rgba(239,68,68,0.2)";
+        ? "rgba(227, 194, 132,0.2)"
+        : "rgba(221, 156, 143,0.2)";
   const statusBorder = `${statusColor}40`;
 
   return (
@@ -493,7 +493,7 @@ function HttpServiceCard({ service }: { service: WhatWebEntry }) {
         <div className="http-card-id">
           <div
             className="port-status-dot"
-            style={{ background: "#e8d5c0", boxShadow: "0 0 6px #e8d5c0" }}
+            style={{ background: "#f6d9a6", boxShadow: "0 0 6px #f6d9a6" }}
           />
           <span className="http-card-port">:{service.port}</span>
           {service.http_status != null && (
@@ -645,7 +645,7 @@ function SslCertificatesCard({ certs }: { certs: SslCert[] }) {
             ? "var(--state-danger)"
             : expiresSoon
               ? "var(--state-warn)"
-              : "#e8d5c0";
+              : "#f6d9a6";
           const statusBg = `${statusColor}20`;
           const statusText = isExpired
             ? "EXPIRED"
@@ -653,15 +653,15 @@ function SslCertificatesCard({ certs }: { certs: SslCert[] }) {
               ? "EXPIRES SOON"
               : "VALID";
           const borderColor = isExpired
-            ? "rgba(239,68,68,0.3)"
+            ? "rgba(221, 156, 143,0.3)"
             : expiresSoon
-              ? "rgba(240,192,0,0.3)"
-              : "rgba(232,213,192,0.3)";
+              ? "rgba(227, 194, 132,0.3)"
+              : "rgba(246, 217, 166,0.3)";
           const headerBg = isExpired
-            ? "rgba(239,68,68,0.08)"
+            ? "rgba(221, 156, 143,0.08)"
             : expiresSoon
-              ? "rgba(240,192,0,0.08)"
-              : "rgba(232,213,192,0.08)";
+              ? "rgba(227, 194, 132,0.08)"
+              : "rgba(246, 217, 166,0.08)";
           const domains = extractDomainFromSubject(cert.subject);
 
           return (
@@ -1078,9 +1078,9 @@ export default function HostDetailPage() {
                   const sslCount = cluster.ssl.length;
                   const scanColor =
                     openCount > 0
-                      ? "#e8d5c0"
+                      ? "#f6d9a6"
                       : webCount > 0
-                        ? "#d9c4a9"
+                        ? "#cabca6"
                         : "var(--color-text-muted)";
                   return (
                     <button
@@ -1380,7 +1380,7 @@ export default function HostDetailPage() {
             <div className="animate-fade-in">
               <h2 className="section-heading">Network Services</h2>
               <div className="legend-row">
-                <span className="legend-item" style={{ color: "#e8d5c0" }}>
+                <span className="legend-item" style={{ color: "#f6d9a6" }}>
                   ● {openPorts.length} open
                 </span>
                 <span className="legend-item" style={{ color: "var(--state-warn)" }}>
@@ -1460,13 +1460,13 @@ export default function HostDetailPage() {
                   {fuzzing.map((f, i) => (
                     <div key={i} className="card-panel" style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span className="badge" style={{ background: "#e8d5c020", color: "#e8d5c0", minWidth: 40, textAlign: "center" }}>
+                        <span className="badge" style={{ background: "#f6d9a620", color: "#f6d9a6", minWidth: 40, textAlign: "center" }}>
                           {f.http_status}
                         </span>
-                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, color: "#d9c4a9" }}>
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, color: "#cabca6" }}>
                           {f.port}
                         </span>
-                        <code style={{ fontSize: 13, color: "#e4e7eb", wordBreak: "break-all" }}>
+                        <code style={{ fontSize: 13, color: "#f5efe4", wordBreak: "break-all" }}>
                           {f.path}
                         </code>
                         <a

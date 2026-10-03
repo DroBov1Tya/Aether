@@ -31,10 +31,10 @@ export default function RootLayout({
             >
               <defs>
                 <linearGradient id={`wave-${i}`} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="rgba(241,207,180,0)" />
-                  <stop offset="45%" stopColor="rgba(241,207,180,0.14)" />
-                  <stop offset="55%" stopColor="rgba(241,207,180,0.14)" />
-                  <stop offset="100%" stopColor="rgba(241,207,180,0)" />
+                  <stop offset="0%" stopColor="rgba(233, 184, 114,0)" />
+                  <stop offset="45%" stopColor="rgba(233, 184, 114,0.14)" />
+                  <stop offset="55%" stopColor="rgba(233, 184, 114,0.14)" />
+                  <stop offset="100%" stopColor="rgba(233, 184, 114,0)" />
                 </linearGradient>
               </defs>
               <path
@@ -46,7 +46,7 @@ export default function RootLayout({
               <path
                 d="M0,182 C200,160 360,196 540,178 C720,160 860,198 1040,180 C1220,162 1320,196 1440,176"
                 fill="none"
-                stroke="rgba(205,181,155,0.05)"
+                stroke="rgba(194, 136, 74,0.05)"
                 strokeWidth="1"
               />
             </svg>

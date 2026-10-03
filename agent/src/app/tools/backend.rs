@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::{
     sync::{
         Arc,
-        atomic::Ordering,
+        atomic::{AtomicU8, Ordering},
     },
     time::Duration,
 };
@@ -13,6 +13,14 @@ use tracing::info;
 
 mod metadata;
 use metadata::AgentMetadata;
+
+struct BusyGuard(Arc<AtomicU8>);
+
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 fn busy(state: &AppState) -> u8 {
     state.busy.load(Ordering::SeqCst)
@@ -71,7 +79,16 @@ pub async fn start(state: Arc<AppState>) -> Result<()> {
                     .send()
                     .await;
                 match r {
-                    Ok(r) if r.status().is_success() => {}
+                    Ok(r) if r.status().is_success() => {
+                        if let Ok(body) = r.json::<Value>().await {
+                            if let Some(cap) = body["max_concurrent_tasks"].as_u64() {
+                                let cap = cap.clamp(1, 100) as u8;
+                                if state.capacity.swap(cap, Ordering::SeqCst) != cap {
+                                    tracing::info!("capacity updated to {cap} via heartbeat");
+                                }
+                            }
+                        }
+                    }
                     Ok(r) if r.status() == reqwest::StatusCode::UNAUTHORIZED => {
                         tracing::warn!("backend rejected our token; re-registering");
                         let (id, token) = match register(&state).await {
@@ -97,7 +114,8 @@ pub async fn start(state: Arc<AppState>) -> Result<()> {
             }
 
             _ = claim_tick.tick() => {
-                let capacity = state.cfg.max_concurrent_scans.saturating_sub(busy(&state) as usize);
+                let capacity = (state.capacity.load(Ordering::SeqCst) as usize)
+                    .saturating_sub(busy(&state) as usize);
                 if capacity == 0 {
                     continue;
                 }
@@ -129,14 +147,14 @@ pub async fn start(state: Arc<AppState>) -> Result<()> {
                     let token = agent_token.clone();
                     let task_id = task_id.clone();
                     tokio::spawn(async move {
-                        scan::run_pipeline(&state, &target, Some(&task_id), &settings).await;
-                        state.busy.fetch_sub(1, Ordering::SeqCst);
+                        let _guard = BusyGuard(state.busy.clone());
+                        let ok = scan::run_pipeline(&state, &target, Some(&task_id), &settings).await;
 
                         let url = format!("{finish_url}/{queue_id}/finish");
                         let r = reqwest::Client::new()
                             .post(&url)
                             .header("X-API-KEY", &token)
-                            .json(&json!({ "task_id": queue_id.to_string(), "success": true }))
+                            .json(&json!({ "task_id": queue_id.to_string(), "success": ok }))
                             .send()
                             .await;
                         match r {
@@ -187,13 +205,21 @@ async fn register(state: &AppState) -> Result<(String, String)> {
         "ip": &meta.ip,
         "kernel": &meta.kernel,
         "port": state.cfg.port,
-        "max_concurrent_tasks": state.cfg.max_concurrent_tasks
+        "max_concurrent_tasks": state.cfg.max_concurrent_tasks,
+        "name": if state.cfg.agent_name.is_empty() { meta.hostname.clone() } else { state.cfg.agent_name.clone() },
+        "agent_id": load_credentials(&state.cfg.credentials_path).map(|c| c.agent_id).unwrap_or_default(),
     });
 
-    let response = client
-        .post(&url)
-        .header("X-API-KEY", &state.cfg.api_key)
-        .json(&json)
+    let mut req = client.post(&url).json(&json);
+    // Enrollment token authorizes first-time join; API key kept for legacy fallback.
+    if !state.cfg.enroll_token.is_empty() {
+        req = req.header("X-ENROLL-TOKEN", &state.cfg.enroll_token);
+    }
+    if !state.cfg.api_key.is_empty() {
+        req = req.header("X-API-KEY", &state.cfg.api_key);
+    }
+
+    let response = req
         .send()
         .await
         .context("register request failed")?;

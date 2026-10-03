@@ -9,6 +9,8 @@ pub mod insert_ssl;
 pub mod insert_whatweb;
 pub mod insert_whois;
 pub mod insert_geo;
+pub mod insert_masscan;
+pub mod enroll;
 pub mod proxies;
 pub mod search;
 pub mod tasks;

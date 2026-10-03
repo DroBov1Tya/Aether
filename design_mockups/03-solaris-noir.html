@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether · Solaris Noir — Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* deep warm-cool graphite, layered */
+  --bg-0:#08090b; --bg-1:#0c0d0f; --bg-2:#101113;
+  /* honey / amber signature */
+  --honey:#e9b872; --honey-lt:#f6d9a6; --honey-dp:#c2884a; --amber:#e0a35a;
+  /* glass tints */
+  --glass:linear-gradient(155deg,rgba(38,33,26,.62),rgba(20,19,18,.5));
+  --glass-2:linear-gradient(155deg,rgba(30,27,22,.55),rgba(16,15,14,.45));
+  --edge:rgba(246,217,166,.14); /* top specular edge */
+  --line:rgba(233,184,114,.09); --line-s:rgba(233,184,114,.20);
+  --txt:#f5efe4; --txt-soft:#cabca6; --txt-mut:#89806f;
+  --ok:#a9be8c; --warn:#e3c284; --danger:#dd9c8f; --live:#e9b872;
+  --mono:"JetBrains Mono",ui-monospace,monospace; --sans:"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--sans);color:var(--txt);font-size:13px;letter-spacing:-.003em;min-height:100vh;
+  background:
+    radial-gradient(60% 40% at 82% 0%, rgba(233,184,114,.13) 0%, transparent 55%),
+    radial-gradient(50% 40% at 0% 100%, rgba(194,136,74,.07) 0%, transparent 60%),
+    linear-gradient(180deg,#0a0b0d 0%,#070809 100%);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+::selection{background:rgba(233,184,114,.3);color:#fff}
+/* faint moving light bloom */
+body::before{content:"";position:fixed;top:-30%;right:-10%;width:60vw;height:60vh;pointer-events:none;z-index:0;
+  background:radial-gradient(circle,rgba(233,184,114,.10),transparent 65%);filter:blur(30px)}
+
+.app{display:grid;grid-template-columns:58px 1fr;min-height:100vh;position:relative;z-index:1}
+
+/* ── ICON RAIL ── */
+.rail{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;
+  background:linear-gradient(180deg,rgba(14,13,12,.7),rgba(10,10,10,.5));
+  backdrop-filter:blur(18px);border-right:1px solid var(--line)}
+.rail .mark{width:32px;height:32px;border-radius:9px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(150deg,var(--honey-lt),var(--honey-dp));color:#1a1206;font-weight:800;font-size:15px;
+  box-shadow:0 6px 18px rgba(233,184,114,.35),inset 0 1px 0 rgba(255,255,255,.4)}
+.ri{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--txt-mut);cursor:pointer;transition:.15s;position:relative}
+.ri:hover{color:var(--txt-soft);background:rgba(233,184,114,.06)}
+.ri.on{color:var(--honey);background:rgba(233,184,114,.10)}
+.ri.on::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--honey);box-shadow:0 0 10px var(--honey)}
+.rail .sp{flex:1}
+
+.main{display:flex;flex-direction:column;min-width:0}
+
+/* ── TOPBAR ── */
+.top{display:flex;align-items:center;gap:16px;height:56px;padding:0 20px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(13,12,11,.72),rgba(13,12,11,.4));backdrop-filter:blur(20px)}
+.crumb{font-family:var(--mono);font-size:12px;color:var(--txt-mut)}
+.crumb b{color:var(--honey);font-weight:600}
+.cmdk{margin-left:auto;display:flex;align-items:center;gap:10px;width:340px;height:36px;padding:0 12px;border-radius:11px;cursor:pointer;
+  background:var(--glass-2);border:1px solid var(--line-s);backdrop-filter:blur(14px);color:var(--txt-mut);
+  box-shadow:inset 0 1px 0 var(--edge);transition:.15s}
+.cmdk:hover{border-color:rgba(233,184,114,.4)}
+.cmdk svg{color:var(--honey);opacity:.85}.cmdk .ph{flex:1;font-size:12.5px}
+kbd{font-family:var(--mono);font-size:10.5px;padding:2px 6px;border-radius:6px;color:var(--honey-lt);border:1px solid var(--line-s);background:rgba(0,0,0,.35)}
+.avatar{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--honey-lt),var(--honey-dp));border:1px solid rgba(255,235,200,.35)}
+
+/* ── QUERY STRIP ── */
+.qstrip{padding:14px 20px 12px}
+.qbox{display:flex;align-items:center;gap:12px;height:46px;padding:0 8px 0 15px;border-radius:13px;
+  background:var(--glass);border:1px solid var(--line-s);backdrop-filter:blur(22px) saturate(140%);
+  box-shadow:inset 0 1px 0 var(--edge),0 14px 40px rgba(0,0,0,.45)}
+.ftag{font-family:var(--mono);font-size:10px;letter-spacing:.11em;padding:5px 9px;border-radius:7px;font-weight:700;color:#1a1206;
+  background:linear-gradient(180deg,var(--honey-lt),var(--honey-dp))}
+.qbox input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-family:var(--mono);font-size:14px}
+.qbox .cnt{font-family:var(--mono);font-size:11.5px;color:var(--txt-mut);padding-right:8px}
+.qbox .go{height:34px;padding:0 16px;border-radius:9px;border:none;cursor:pointer;font-weight:600;font-size:12.5px;color:#1a1206;
+  background:linear-gradient(180deg,var(--honey-lt),var(--honey-dp));box-shadow:0 4px 14px rgba(233,184,114,.3)}
+.appliedbar{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.appliedbar .lb{font-size:11px;color:var(--txt-mut)}
+.qtag{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:20px;color:var(--honey-lt);
+  border:1px solid var(--line-s);background:rgba(233,184,114,.07)}
+.qtag x{cursor:pointer;opacity:.6;font-style:normal}
+
+/* ── THREE PANELS ── */
+.grid{flex:1;display:grid;grid-template-columns:228px 1fr 356px;gap:14px;padding:2px 20px 24px;min-height:0}
+.panel{border-radius:15px;background:var(--glass);border:1px solid var(--line);position:relative;overflow:hidden;
+  backdrop-filter:blur(26px) saturate(135%);box-shadow:inset 0 1px 0 var(--edge),0 18px 50px rgba(0,0,0,.4)}
+.panel::after{content:"";position:absolute;top:0;left:14px;right:14px;height:1px;background:linear-gradient(90deg,transparent,var(--edge),transparent)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 10px;font-size:10.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--txt-mut);font-weight:600;border-bottom:1px solid var(--line)}
+.ph a{color:var(--honey);text-decoration:none;font-size:10px;text-transform:none;letter-spacing:0}
+
+/* facets */
+.fb{padding:11px 15px 13px;border-bottom:1px solid var(--line)}
+.fb:last-child{border:none}
+.fh{font-size:11px;color:var(--txt-soft);font-weight:600;margin-bottom:9px;display:flex;justify-content:space-between}
+.fh span{color:var(--txt-mut);font-family:var(--mono);font-size:10px;font-weight:400}
+.fr{display:grid;grid-template-columns:1fr 42px auto;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+.fr:hover .lbl{color:var(--txt)}
+.fr .lbl{font-size:12px;color:var(--txt-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr .track{height:5px;border-radius:3px;background:rgba(233,184,114,.08);overflow:hidden}
+.fr .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--honey-dp),var(--honey-lt));box-shadow:0 0 10px rgba(233,184,114,.45)}
+.fr .val{font-family:var(--mono);font-size:10.5px;color:var(--txt-mut);text-align:right}
+.chk{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--txt-soft);cursor:pointer}
+.chk i{width:14px;height:14px;border-radius:4px;border:1px solid var(--line-s);position:relative;flex:0 0 auto}
+.chk.on i{background:linear-gradient(180deg,var(--honey-lt),var(--honey-dp));border-color:transparent}
+.chk.on i::after{content:"✓";position:absolute;inset:0;font-size:9px;color:#1a1206;display:flex;align-items:center;justify-content:center;font-weight:800}
+.chk .n{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--txt-mut)}
+
+/* host list */
+.lh{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;color:var(--txt-mut);font-size:11px;border-bottom:1px solid var(--line)}
+.lh b{color:var(--txt-soft)}
+.sorts{display:flex;gap:6px}
+.pill{padding:4px 11px;border-radius:20px;font-size:11px;color:var(--txt-mut);border:1px solid var(--line);cursor:pointer}
+.pill.on{color:var(--honey-lt);border-color:var(--line-s);background:rgba(233,184,114,.08)}
+.hlist{padding:8px}
+.hr{display:grid;grid-template-columns:24px 1fr 158px;gap:12px;padding:12px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:.14s}
+.hr:hover{background:rgba(233,184,114,.04);border-color:var(--line)}
+.hr.sel{background:linear-gradient(160deg,rgba(233,184,114,.11),rgba(233,184,114,.03));border-color:var(--line-s);box-shadow:inset 0 1px 0 var(--edge)}
+.hr .fl{color:var(--honey-dp);opacity:.75;margin-top:2px}
+.hrt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ip{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--txt)}
+.hn{font-size:12.5px;color:var(--txt-soft)}
+.st{font-family:var(--mono);font-size:11px;font-weight:600;margin-left:auto}
+.hm{display:flex;gap:14px;margin:6px 0 8px;font-size:11.5px;color:var(--txt-mut)}
+.hm b{color:var(--txt-soft)}
+.hu{font-family:var(--mono);color:var(--honey-dp);opacity:.85}
+.ports{display:flex;gap:6px;flex-wrap:wrap}
+.pc{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:6px;color:var(--txt-soft);background:rgba(0,0,0,.3);border:1px solid var(--line)}
+.pc.hot{color:var(--honey-lt);border-color:var(--line-s);background:rgba(233,184,114,.08)}
+.hs{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.ht{font-family:var(--mono);font-size:10.5px;color:var(--txt-mut)}
+.tt{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.tc{font-size:10.5px;padding:2px 7px;border-radius:5px;color:var(--txt-mut);border:1px solid var(--line)}
+
+/* inspector */
+.ins{padding:16px 16px 14px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.ins::after{content:"";position:absolute;top:-45%;right:-18%;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(233,184,114,.18),transparent 70%)}
+.ins .ip{font-family:var(--mono);font-size:20px;font-weight:700}
+.ins .sub{font-size:12px;color:var(--txt-soft);margin-top:3px}
+.flags{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+.tg{font-size:10.5px;padding:3px 9px;border-radius:20px;font-family:var(--mono)}
+.tg.geo{color:var(--txt-soft);border:1px solid var(--line);background:rgba(0,0,0,.28)}
+.tg.cve{color:var(--danger);border:1px solid rgba(221,156,143,.32);background:rgba(221,156,143,.08)}
+.tg.ok{color:var(--ok);border:1px solid rgba(169,190,140,.26);background:rgba(169,190,140,.07)}
+.shot{margin:14px;border-radius:11px;border:1px solid var(--line);overflow:hidden;aspect-ratio:16/10;position:relative;background:linear-gradient(135deg,#1c150c,#0e0b07)}
+.shot .bar{position:absolute;top:0;left:0;right:0;height:22px;background:rgba(0,0,0,.42);display:flex;align-items:center;gap:5px;padding:0 8px}
+.d{width:7px;height:7px;border-radius:50%;background:var(--honey-dp);opacity:.55}
+.shot .fr2{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--txt-mut);font-family:var(--mono);font-size:11px}
+.kv{padding:6px 16px}
+.kr{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.kr:last-child{border:none}
+.kk{color:var(--txt-mut)}
+.kvv{font-family:var(--mono);color:var(--txt-soft);text-align:right;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kvv.g{color:var(--honey-lt)}
+.svc{margin:6px 16px 16px}
+.si{padding:10px 12px;border-radius:10px;border:1px solid var(--line);margin-bottom:8px;background:rgba(0,0,0,.22)}
+.sih{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--txt);margin-bottom:5px}
+.sih .p{color:var(--honey-lt);font-weight:600}
+.sib{font-family:var(--mono);font-size:10.5px;color:var(--txt-mut);line-height:1.6}
+.foot{padding:14px;text-align:center;color:var(--txt-mut);font-size:10.5px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- RAIL -->
+  <div class="rail">
+    <div class="mark">A</div>
+    <div class="ri" title="Home"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7l6-5 6 5"/><path d="M4 6.5V14h8V6.5"/></svg></div>
+    <div class="ri on" title="Search"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg></div>
+    <div class="ri" title="Scans"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 1.5"/></svg></div>
+    <div class="ri" title="Screenshots"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><circle cx="5.5" cy="6" r="1"/><path d="M14 10l-3.5-3.5L3 14"/></svg></div>
+    <div class="ri" title="Stats"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 14V2"/><path d="M2 14h12"/><rect x="4" y="8" width="2.4" height="4"/><rect x="8" y="5" width="2.4" height="7"/><rect x="12" y="9" width="1" height="3"/></svg></div>
+    <div class="sp"></div>
+    <div class="ri" title="System"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.4"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M13 3l-1.5 1.5M4.5 11.5L3 13"/></svg></div>
+  </div>
+
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="top">
+      <div class="crumb">Search / <b>ssl.cert · port:443 · DE</b></div>
+      <div class="cmdk">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+        <span class="ph">Search or jump…</span><kbd>⌘K</kbd>
+      </div>
+      <div class="avatar"></div>
+    </div>
+
+    <!-- QUERY -->
+    <div class="qstrip">
+      <div class="qbox">
+        <span class="ftag">SSL</span>
+        <input value='ssl.cert.issuer.CN:"Let'"'"'s Encrypt" port:443 country:DE' spellcheck="false">
+        <span class="cnt">12,847 hits · 197ms</span>
+        <button class="go">Search</button>
+      </div>
+      <div class="appliedbar">
+        <span class="lb">Filters</span>
+        <span class="qtag">port:443 <x>×</x></span>
+        <span class="qtag">country:DE <x>×</x></span>
+        <span class="qtag">issuer:Let's Encrypt <x>×</x></span>
+        <span class="qtag">has_screenshot:true <x>×</x></span>
+      </div>
+    </div>
+
+    <!-- 3 PANELS -->
+    <div class="grid">
+      <!-- FACETS -->
+      <div class="panel">
+        <div class="ph">Facets <a href="#">reset</a></div>
+        <div class="fb">
+          <div class="fh">Top Ports <span>open</span></div>
+          <div class="fr"><span class="lbl">443 · https</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">8.4k</span></div>
+          <div class="fr"><span class="lbl">80 · http</span><span class="track"><span class="fill" style="width:73%"></span></span><span class="val">6.1k</span></div>
+          <div class="fr"><span class="lbl">22 · ssh</span><span class="track"><span class="fill" style="width:40%"></span></span><span class="val">3.3k</span></div>
+          <div class="fr"><span class="lbl">8080 · http</span><span class="track"><span class="fill" style="width:27%"></span></span><span class="val">2.2k</span></div>
+        </div>
+        <div class="fb">
+          <div class="fh">Technologies</div>
+          <div class="fr"><span class="lbl">nginx</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">5.8k</span></div>
+          <div class="fr"><span class="lbl">OpenSSH 8.9</span><span class="track"><span class="fill" style="width:57%"></span></span><span class="val">3.3k</span></div>
+          <div class="fr"><span class="lbl">Apache</span><span class="track"><span class="fill" style="width:43%"></span></span><span class="val">2.5k</span></div>
+          <div class="fr"><span class="lbl">Cloudflare</span><span class="track"><span class="fill" style="width:30%"></span></span><span class="val">1.7k</span></div>
+        </div>
+        <div class="fb">
+          <div class="fh">Organization</div>
+          <label class="chk on"><i></i>Hetzner Online<span class="n">3.9k</span></label>
+          <label class="chk"><i></i>OVH SAS<span class="n">2.1k</span></label>
+          <label class="chk"><i></i>DigitalOcean<span class="n">1.4k</span></label>
+          <label class="chk"><i></i>Contabo<span class="n">903</span></label>
+        </div>
+        <div class="fb">
+          <div class="fh">Vulnerabilities</div>
+          <label class="chk"><i></i>CVE-2023-44487<span class="n">312</span></label>
+          <label class="chk"><i></i>CVE-2024-3094<span class="n">88</span></label>
+          <label class="chk"><i></i>CVE-2021-44228<span class="n">41</span></label>
+        </div>
+      </div>
+
+      <!-- HOST LIST -->
+      <div class="panel">
+        <div class="lh">
+          <span>Showing <b>1–6</b> of 12,847 hosts</span>
+          <div class="sorts"><span class="pill on">Relevance</span><span class="pill">Last seen</span><span class="pill">Ports ↓</span></div>
+        </div>
+        <div class="hlist">
+          <div class="hr sel">
+            <div class="fl"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="8" r="6"/><ellipse cx="8" cy="8" rx="3" ry="6"/><line x1="2.2" y1="8" x2="13.8" y2="8"/></svg></div>
+            <div>
+              <div class="hrt"><span class="ip">45.33.32.156</span><span class="hn">edge-gw-fra1.hetzner.cloud</span><span class="st" style="color:var(--ok)">200</span></div>
+              <div class="hm"><span><b>7</b> open ports</span><span><b>5</b> technologies</span><span><b>3</b> scans</span><span class="hu">https://45.33.32.156</span></div>
+              <div class="ports"><span class="pc hot">443 · https</span><span class="pc hot">80 · http</span><span class="pc">22 · ssh</span><span class="pc">8080 · http</span><span class="pc">3306 · mysql</span><span class="pc">+2</span></div>
+            </div>
+            <div class="hs"><span class="ht">2h ago</span><div class="tt"><span class="tc">nginx</span><span class="tc">OpenSSH</span><span class="tc">Ubuntu</span></div></div>
+          </div>
+          <div class="hr">
+            <div class="fl"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="8" r="6"/><ellipse cx="8" cy="8" rx="3" ry="6"/><line x1="2.2" y1="8" x2="13.8" y2="8"/></svg></div>
+            <div>
+              <div class="hrt"><span class="ip">193.19.108.42</span><span class="hn">mail.dresden-lab.de</span><span class="st" style="color:var(--warn)">301</span></div>
+              <div class="hm"><span><b>4</b> open ports</span><span><b>3</b> technologies</span><span class="hu">https://mail.dresden-lab.de</span></div>
+              <div class="ports"><span class="pc hot">443 · https</span><span class="pc">993 · imaps</span><span class="pc">587 · smtp</span><span class="pc">25 · smtp</span></div>
+            </div>
+            <div class="hs"><span class="ht">6h ago</span><div class="tt"><span class="tc">Postfix</span><span class="tc">Dovecot</span></div></div>
+          </div>
+          <div class="hr">
+            <div class="fl"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="8" r="6"/><ellipse cx="8" cy="8" rx="3" ry="6"/><line x1="2.2" y1="8" x2="13.8" y2="8"/></svg></div>
+            <div>
+              <div class="hrt"><span class="ip">88.198.44.201</span><span class="hn">cdn-node-07.static.de</span><span class="st" style="color:var(--ok)">200</span></div>
+              <div class="hm"><span><b>3</b> open ports</span><span><b>4</b> technologies</span><span class="hu">https://88.198.44.201:8443</span></div>
+              <div class="ports"><span class="pc hot">443 · https</span><span class="pc hot">8443 · https</span><span class="pc">80 · http</span></div>
+            </div>
+            <div class="hs"><span class="ht">1d ago</span><div class="tt"><span class="tc">Cloudflare</span><span class="tc">Varnish</span></div></div>
+          </div>
+          <div class="hr">
+            <div class="fl"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="8" r="6"/><ellipse cx="8" cy="8" rx="3" ry="6"/><line x1="2.2" y1="8" x2="13.8" y2="8"/></svg></div>
+            <div>
+              <div class="hrt"><span class="ip">116.202.7.88</span><span class="hn">k8s-ingress.prod.internal</span><span class="st" style="color:var(--danger)">403</span></div>
+              <div class="hm"><span><b>6</b> open ports</span><span><b>6</b> technologies</span><span><b>2</b> scans</span></div>
+              <div class="ports"><span class="pc hot">443 · https</span><span class="pc">6443 · k8s</span><span class="pc">10250 · kubelet</span><span class="pc">22 · ssh</span><span class="pc">+2</span></div>
+            </div>
+            <div class="hs"><span class="ht">3d ago</span><div class="tt"><span class="tc">Kubernetes</span><span class="tc">Traefik</span></div></div>
+          </div>
+          <div class="hr">
+            <div class="fl"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="8" r="6"/><ellipse cx="8" cy="8" rx="3" ry="6"/><line x1="2.2" y1="8" x2="13.8" y2="8"/></svg></div>
+            <div>
+              <div class="hrt"><span class="ip">159.69.201.114</span><span class="hn">grafana.metrics.de</span><span class="st" style="color:var(--ok)">200</span></div>
+              <div class="hm"><span><b>3</b> open ports</span><span><b>3</b> technologies</span></div>
+              <div class="ports"><span class="pc hot">443 · https</span><span class="pc">3000 · grafana</span><span class="pc">9090 · prometheus</span></div>
+            </div>
+            <div class="hs"><span class="ht">1w ago</span><div class="tt"><span class="tc">Grafana</span><span class="tc">nginx</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSPECTOR -->
+      <div class="panel">
+        <div class="ins">
+          <div class="ip">45.33.32.156</div>
+          <div class="sub">edge-gw-fra1.hetzner.cloud · AS24940 Hetzner Online GmbH</div>
+          <div class="flags"><span class="tg geo">🇩🇪 Frankfurt, DE</span><span class="tg ok">200 OK</span><span class="tg cve">CVE-2023-44487</span></div>
+        </div>
+        <div class="shot">
+          <div class="bar"><span class="d"></span><span class="d"></span><span class="d"></span></div>
+          <div class="fr2">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            screenshot · 443/https
+          </div>
+        </div>
+        <div class="kv">
+          <div class="kr"><span class="kk">ASN</span><span class="kvv">AS24940</span></div>
+          <div class="kr"><span class="kk">Reverse DNS</span><span class="kvv">static.156.32.33.45</span></div>
+          <div class="kr"><span class="kk">JARM</span><span class="kvv g">2ad2ad0002ad…8f3e1c</span></div>
+          <div class="kr"><span class="kk">TLS</span><span class="kvv">TLS 1.3 · X25519</span></div>
+          <div class="kr"><span class="kk">Cert issuer</span><span class="kvv">Let's Encrypt R3</span></div>
+          <div class="kr"><span class="kk">Cert SAN</span><span class="kvv">*.hetzner.cloud</span></div>
+          <div class="kr"><span class="kk">First seen</span><span class="kvv">2025-11-04</span></div>
+        </div>
+        <div class="svc">
+          <div class="si">
+            <div class="sih"><span class="p">443</span> https · nginx/1.25.3</div>
+            <div class="sib">HTTP/2 200 · server: nginx<br>strict-transport-security: max-age=63072000<br>content-type: text/html; charset=UTF-8</div>
+          </div>
+          <div class="si">
+            <div class="sih"><span class="p">22</span> ssh · OpenSSH 8.9p1</div>
+            <div class="sib">SSH-2.0-OpenSSH_8.9p1 Ubuntu-3<br>kex: curve25519-sha256<br>hostkey: ssh-ed25519 AAAAC3Nz…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">Aether · Solaris Noir — signature edge-lit liquid-glass concept · demo data</div>
+  </div>
+</div>
+</body>
+</html>

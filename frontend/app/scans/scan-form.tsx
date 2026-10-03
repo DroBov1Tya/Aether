@@ -283,8 +283,8 @@ export default function ScansPage() {
           className="card-panel"
           style={{
             marginBottom: 24,
-            background: "rgba(199,138,134,0.06)",
-            border: "1px solid rgba(199,138,134,0.28)",
+            background: "rgba(221, 156, 143,0.06)",
+            border: "1px solid rgba(221, 156, 143,0.28)",
           }}
         >
           <div
@@ -322,9 +322,9 @@ export default function ScansPage() {
           style={{
             marginBottom: 24,
             background: launchResult.startsWith("✅")
-              ? "rgba(168,181,154,0.06)"
-              : "rgba(199,138,134,0.06)",
-            border: `1px solid ${launchResult.startsWith("✅") ? "rgba(168,181,154,0.28)" : "rgba(199,138,134,0.28)"}`,
+              ? "rgba(169, 190, 140,0.06)"
+              : "rgba(221, 156, 143,0.06)",
+            border: `1px solid ${launchResult.startsWith("✅") ? "rgba(169, 190, 140,0.28)" : "rgba(221, 156, 143,0.28)"}`,
           }}
         >
           <pre
@@ -421,7 +421,7 @@ export default function ScansPage() {
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleMethod(m.id)}
-                      style={{ marginTop: 3, accentColor: "#e0c3a6" }}
+                      style={{ marginTop: 3, accentColor: "#f6d9a6" }}
                     />
                     <div>
                       <div className="option-card-title">
@@ -487,8 +487,8 @@ export default function ScansPage() {
                     marginTop: 16,
                     marginBottom: 0,
                     padding: 16,
-                    background: "rgba(216,183,132,0.05)",
-                    border: "1px solid rgba(216,183,132,0.2)",
+                    background: "rgba(227, 194, 132,0.05)",
+                    border: "1px solid rgba(227, 194, 132,0.2)",
                     borderRadius: 10,
                   }}
                 >

@@ -100,7 +100,7 @@ export default function TaskList() {
           }}
         >
           <thead>
-            <tr style={{ color: "#818b98", textAlign: "left" }}>
+            <tr style={{ color: "#89806f", textAlign: "left" }}>
               <th style={th}>TASK</th>
               <th style={th}>TARGET</th>
               <th style={th}>STATUS</th>

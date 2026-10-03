@@ -47,7 +47,7 @@ fn now() -> DateTime<Utc> {
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 async fn next_id(client: &Client) -> u64 {
-    if NEXT_ID.load(Ordering::Relaxed) == 0 {
+    if NEXT_ID.load(Ordering::SeqCst) == 0 {
         let seed = match client
             .query("SELECT max(id) AS m FROM task_queue")
             .fetch_bytes("JSONEachRow")
@@ -66,7 +66,7 @@ async fn next_id(client: &Client) -> u64 {
                 1
             }
         };
-        NEXT_ID.store(seed, Ordering::SeqCst);
+        let _ = NEXT_ID.compare_exchange(0, seed, Ordering::SeqCst, Ordering::SeqCst);
     }
     NEXT_ID.fetch_add(1, Ordering::SeqCst)
 }
@@ -204,7 +204,7 @@ pub async fn claim(client: &Client, agent_id: &str, n: u32) -> Result<Vec<Claime
 
 pub async fn finish(client: &Client, id: u64, agent_id: &str, ok: bool, error: &str) -> Result<()> {
     let bytes = client
-        .query("SELECT task_id, target, payload, attempts FROM task_queue FINAL WHERE id = ?")
+        .query("SELECT task_id, target, payload, attempts, toString(assigned_at) AS assigned_at FROM task_queue FINAL WHERE id = ?")
         .bind(id)
         .fetch_bytes("JSONEachRow")?
         .collect()
@@ -220,13 +220,18 @@ pub async fn finish(client: &Client, id: u64, agent_id: &str, ok: bool, error: &
     let target = v["target"].as_str().unwrap_or_default().to_string();
     let payload = v["payload"].as_str().unwrap_or_default().to_string();
     let attempts = v["attempts"].as_u64().unwrap_or(1) as u8;
+    let assigned_at = v["assigned_at"]
+        .as_str()
+        .and_then(|s| chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
+        .map(|ndt| ndt.and_utc())
+        .or_else(|| Some(now()));
 
-    let (status, attempts_new, lease_until) = if ok {
-        ("done", attempts, None)
+    let (status, lease_until) = if ok {
+        ("done", None)
     } else if attempts >= MAX_ATTEMPTS {
-        ("failed", attempts, None)
+        ("failed", None)
     } else {
-        ("queued", attempts + 1, None)
+        ("queued", None)
     };
 
     let row = TaskUpdateRow {
@@ -236,9 +241,9 @@ pub async fn finish(client: &Client, id: u64, agent_id: &str, ok: bool, error: &
         payload,
         status: status.to_string(),
         agent_id: agent_id.to_string(),
-        attempts: attempts_new,
+        attempts,
         error: if ok { String::new() } else { error.to_string() },
-        assigned_at: Some(now()),
+        assigned_at,
         finished_at: Some(now()),
         lease_until,
     };

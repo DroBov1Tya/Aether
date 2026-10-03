@@ -16,7 +16,7 @@ export default function HostCard({ host }: Props) {
       className="host-card"
     >
       <div className="mb-3 flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-[#e8d5c0]" style={{ boxShadow: "0 0 8px rgba(232,213,192,0.6)" }} />
+        <div className="h-2 w-2 rounded-full bg-[#f6d9a6]" style={{ boxShadow: "0 0 8px rgba(246, 217, 166,0.6)" }} />
         <span className="font-mono text-base font-medium text-white">
           {host.target}
         </span>

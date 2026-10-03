@@ -1,5 +1,6 @@
 pub mod agents;
 pub mod checkout;
+pub mod enroll;
 pub mod geo_ranges;
 pub mod getlast;
 pub mod health;

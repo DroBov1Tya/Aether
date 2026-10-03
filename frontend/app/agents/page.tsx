@@ -1,37 +1,12 @@
 import { fetchApi } from "@/lib/api";
+import AgentCard, { AgentCardData } from "./agent-card";
 
-interface Agent {
-  id: string;
-  ip: string;
-  name: string;
-  version: string;
-  port: number;
-  os: string;
-  arch: string;
-  kernel: string;
-  max_concurrent_tasks: number;
-  status: string;
-  last_seen_at: string;
-}
-
-async function getAgents(): Promise<Agent[]> {
+async function getAgents(): Promise<AgentCardData[]> {
   try {
-    return await fetchApi<Agent[]>("/api/agents");
+    return await fetchApi<AgentCardData[]>("/api/agents");
   } catch {
     return [];
   }
-}
-
-function relTime(s: string): string {
-  if (!s) return "—";
-  const d = new Date(s.includes("T") ? s : s.replace(" ", "T") + "Z");
-  if (isNaN(d.getTime())) return s;
-  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 export default async function AgentsPage() {
@@ -70,53 +45,9 @@ export default async function AgentsPage() {
         </div>
       ) : (
         <div className="agents-grid">
-          {agents.map((a) => {
-            const isActive = a.status === "active";
-            return (
-              <div key={a.id} className="agent-card">
-                <div className="agent-card-head">
-                  <div className="agent-identity">
-                    <span
-                      className="agent-status-dot"
-                      style={{ background: isActive ? "var(--state-ok)" : "var(--state-danger)" }}
-                    />
-                    <div>
-                      <div className="agent-name">{a.name || "unnamed"}</div>
-                      <div className="agent-id">{a.id.slice(0, 12)}</div>
-                    </div>
-                  </div>
-                  <span
-                    className="agent-status-label"
-                    style={{ color: isActive ? "var(--state-ok)" : "var(--state-danger)" }}
-                  >
-                    {a.status}
-                  </span>
-                </div>
-
-                <div className="agent-endpoint">
-                  {a.ip}
-                  <span className="agent-port">:{a.port}</span>
-                </div>
-
-                <dl className="agent-meta">
-                  <div><dt>OS</dt><dd>{a.os || "—"}</dd></div>
-                  <div><dt>Arch</dt><dd>{a.arch || "—"}</dd></div>
-                  <div><dt>Version</dt><dd>{a.version || "—"}</dd></div>
-                  <div><dt>Kernel</dt><dd className="truncate" title={a.kernel}>{a.kernel || "—"}</dd></div>
-                </dl>
-
-                <div className="agent-card-foot">
-                  <div className="agent-capacity">
-                    <span className="agent-capacity-label">Capacity</span>
-                    <span className="agent-capacity-value">{a.max_concurrent_tasks} tasks</span>
-                  </div>
-                  <span className="agent-lastseen" title={a.last_seen_at}>
-                    {relTime(a.last_seen_at)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {agents.map((a) => (
+            <AgentCard key={a.agent_id} agent={a} />
+          ))}
         </div>
       )}
     </div>

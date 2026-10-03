@@ -72,6 +72,18 @@ export async function DELETE(
   });
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
+) {
+  const { path } = await params;
+  const apiPath = "/" + path.join("/");
+  const targetUrl = `${BACKEND_URL}${apiPath}`;
+  const body = await request.text();
+
+  return proxyRequest(targetUrl, { method: "PATCH", body: body || undefined });
+}
+
 async function proxyRequest(
   targetUrl: string,
   init: RequestInit,

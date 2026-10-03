@@ -167,7 +167,7 @@ export default function CountryAsnPicker({
                         padding: "8px 12px",
                         borderBottom: "1px solid var(--color-border-subtle)",
                         cursor: "pointer",
-                        background: checked ? "rgba(241,207,180,0.06)" : "transparent",
+                        background: checked ? "rgba(233, 184, 114,0.06)" : "transparent",
                         fontSize: 13,
                         fontFamily: "JetBrains Mono",
                       }}
@@ -176,7 +176,7 @@ export default function CountryAsnPicker({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(a.asn)}
-                        style={{ accentColor: "#e0c3a6" }}
+                        style={{ accentColor: "#f6d9a6" }}
                       />
                       <span style={{ color: "var(--color-champagne)", minWidth: 76 }}>AS{a.asn}</span>
                       <span style={{ color: "var(--color-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

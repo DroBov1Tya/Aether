@@ -5,8 +5,8 @@ use axum::{
 use std::sync::Arc;
 
 use super::handlers::{
-    agents, checkout, geo_ranges, getlast, host, projects, proxies, screenshots, search, shodan,
-    stats, tasks,
+    agents, checkout, enroll, geo_ranges, getlast, host, projects, proxies, screenshots, search,
+    shodan, stats, tasks,
 };
 use crate::app::AppState;
 
@@ -16,6 +16,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/api/checkout/rustscan",
             post(checkout::rustscan::save_data),
+        )
+        .route(
+            "/api/checkout/masscan",
+            post(checkout::masscan::save_data),
         )
         .route("/api/checkout/nmap", post(checkout::nmap::save_data))
         .route("/api/checkout/whatweb", post(checkout::whatweb::save_data))
@@ -28,6 +32,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/checkout/whois", post(checkout::whois::save_data))
         .route("/api/checkout/geo", post(checkout::geo::save_data))
         .route("/api/register/agent", post(agents::register_agent))
+        .route(
+            "/api/enroll-tokens",
+            get(enroll::list_enroll_tokens).post(enroll::create_enroll_token),
+        )
+        .route(
+            "/api/enroll-tokens/{token_hash}",
+            axum::routing::delete(enroll::revoke_enroll_token),
+        )
         .route(
             "/api/agents/{agent_id}/heartbeat",
             post(agents::agent_heartbeat),
@@ -43,7 +55,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/agents", get(agents::list_agents))
         .route(
             "/api/agents/{agent_id}",
-            axum::routing::delete(agents::revoke_agent),
+            axum::routing::patch(agents::update_agent)
+                .delete(agents::revoke_agent),
         )
         .route("/api/tasks", get(agents::list_tasks))
         .route("/api/tasks/{task_id}/progress", get(agents::task_progress))

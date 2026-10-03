@@ -255,8 +255,9 @@ pub async fn upsert(
     Ok(())
 }
 
-pub async fn heartbeat(client: &Client, agent_id: &str, busy: u8) -> Result<()> {
+pub async fn heartbeat(client: &Client, agent_id: &str, busy: u8) -> Result<u8> {
     let meta = current_meta(client, agent_id).await;
+    let capacity = meta.max_concurrent_tasks;
     let row = AgentRow {
         agent_id: agent_id.to_string(),
         token_hash: meta.token_hash,
@@ -269,6 +270,28 @@ pub async fn heartbeat(client: &Client, agent_id: &str, busy: u8) -> Result<()> 
         kernel: meta.kernel,
         max_concurrent_tasks: meta.max_concurrent_tasks,
         busy_tasks: busy,
+        status: "active".to_string(),
+    };
+    let mut inserter = client.insert::<AgentRow>("agent_tokens").await?;
+    inserter.write(&row).await?;
+    inserter.end().await?;
+    Ok(capacity)
+}
+
+pub async fn set_concurrency(client: &Client, agent_id: &str, max_concurrent_tasks: u8) -> Result<()> {
+    let meta = current_meta(client, agent_id).await;
+    let row = AgentRow {
+        agent_id: agent_id.to_string(),
+        token_hash: meta.token_hash,
+        name: meta.name,
+        ip: meta.ip,
+        port: meta.port,
+        version: meta.version,
+        os: meta.os,
+        arch: meta.arch,
+        kernel: meta.kernel,
+        max_concurrent_tasks,
+        busy_tasks: 0,
         status: "active".to_string(),
     };
     let mut inserter = client.insert::<AgentRow>("agent_tokens").await?;

@@ -51,10 +51,10 @@ pub async fn run_rustscan(
             args.push(r.to_string());
         }
     }
-    if let Some(t) = threads {
-        args.push("-b".to_string());
-        args.push(t.to_string());
-    }
+    let max_batch = crate::config::cfg().rustscan_max_batch.max(1);
+    let batch = threads.unwrap_or(max_batch).min(max_batch);
+    args.push("-b".to_string());
+    args.push(batch.to_string());
     if let Some(ms) = timeout_ms {
         args.push("-t".to_string());
         args.push(ms.to_string());

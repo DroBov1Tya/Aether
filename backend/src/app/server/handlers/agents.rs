@@ -10,7 +10,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::app::AppState;
-use crate::app::databases::clickhouse::queries::{tasks as ch_tasks, tokens};
+use crate::app::databases::clickhouse::queries::{enroll, tasks as ch_tasks, tokens};
 
 fn header_key(headers: &HeaderMap) -> Option<&str> {
     headers.get("x-api-key").and_then(|v| v.to_str().ok())
@@ -60,24 +60,56 @@ pub struct RegisterReq {
     pub ip: Option<String>,
     pub port: Option<i32>,
     pub max_concurrent_tasks: Option<u8>,
+    pub agent_id: Option<String>,
+    pub name: Option<String>,
 }
 
 pub async fn register_agent(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Json(req): Json<RegisterReq>,
 ) -> impl IntoResponse {
-    let agent_id = Uuid::new_v4().to_string();
+    let presented = header_key(&headers).unwrap_or("");
+    let enroll_token = headers
+        .get("x-enroll-token")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    let authorized = if !enroll_token.is_empty() {
+        enroll::consume(&state.ch, enroll_token).await
+    } else {
+        state.cfg.allow_apikey_enroll && !presented.is_empty() && presented == state.cfg.api_key
+    };
+
+    if !authorized {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "status": "error", "error": "enrollment not authorized" })),
+        );
+    }
+
+    let agent_id = req
+        .agent_id
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     let token = format!("{agent_id}-{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
 
     let ip = req.ip.as_deref().unwrap_or("");
     let port = req.port.unwrap_or(8020) as u16;
     let max_concurrent_tasks = req.max_concurrent_tasks.unwrap_or(10);
+    let name = req
+        .name
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(&req.hostname);
 
     if let Err(e) = tokens::upsert(
         &state.ch,
         &agent_id,
         &token,
-        &req.hostname,
+        name,
         ip,
         port,
         &req.version,
@@ -122,14 +154,39 @@ pub async fn agent_heartbeat(
 ) -> impl IntoResponse {
     auth_check!(state, agent_id, headers);
 
-    if let Err(e) = tokens::heartbeat(&state.ch, &agent_id, req.busy.unwrap_or(0)).await {
-        return (
+    match tokens::heartbeat(&state.ch, &agent_id, req.busy.unwrap_or(0)).await {
+        Ok(capacity) => (
+            StatusCode::OK,
+            Json(json!({ "status": "ok", "max_concurrent_tasks": capacity })),
+        ),
+        Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "status": "error", "error": e.to_string() })),
-        );
+        ),
     }
+}
 
-    (StatusCode::OK, Json(json!({ "status": "ok" })))
+#[derive(Deserialize)]
+pub struct UpdateAgentReq {
+    pub max_concurrent_tasks: u8,
+}
+
+pub async fn update_agent(
+    State(state): State<Arc<AppState>>,
+    Path(agent_id): Path<String>,
+    Json(req): Json<UpdateAgentReq>,
+) -> impl IntoResponse {
+    let capacity = req.max_concurrent_tasks.clamp(1, 100);
+    match tokens::set_concurrency(&state.ch, &agent_id, capacity).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(json!({ "status": "ok", "max_concurrent_tasks": capacity })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "status": "error", "error": e.to_string() })),
+        ),
+    }
 }
 
 #[derive(Deserialize)]

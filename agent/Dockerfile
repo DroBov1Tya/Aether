@@ -108,6 +108,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates \
     tzdata \
     nmap \
+    masscan \
     whatweb \
     chromium \
     chromium-driver \
