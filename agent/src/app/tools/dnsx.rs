@@ -5,6 +5,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DnsxResult {
@@ -38,20 +39,16 @@ struct DnsxLine {
 }
 
 pub async fn run_dnsx(
-    external_server_path: &str,
+    sink: &Sink,
     targets: &[String],
     scan_uid: &str,
     task_uid: Option<&str>,
     _pool: &[String],
-    api_key: &str,
 ) -> Result<usize> {
     if targets.is_empty() {
         return Ok(0);
     }
 
-    // DNS resolves over UDP/TCP, not HTTP, so the HTTP proxy pool does not
-    // apply here; dnsx always runs direct. `_pool` is accepted only to keep
-    // the pipeline call shape uniform with the other tools.
     let cfg = crate::config::cfg();
 
     let args: Vec<String> = vec![
@@ -87,9 +84,7 @@ pub async fn run_dnsx(
     let output = child.wait_with_output().await?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let url = format!("{}/api/checkout/dns", external_server_path);
-    let mut count = 0usize;
-
+    let mut results: Vec<DnsxResult> = Vec::new();
     for line in stdout.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -107,7 +102,7 @@ pub async fn run_dnsx(
             _ => continue,
         };
 
-        let result = DnsxResult {
+        results.push(DnsxResult {
             target: target.clone(),
             a: parsed.a,
             aaaa: parsed.aaaa,
@@ -116,25 +111,25 @@ pub async fn run_dnsx(
             ns: strip_trailing_dots(parsed.ns),
             txt: parsed.txt,
             ptr: strip_trailing_dots(parsed.ptr),
-        };
+        });
+    }
 
-        let country = super::common::lookup_country(&target).await;
+    let mut count = 0usize;
+    for result in &results {
+        let country = super::common::lookup_country(&result.target).await;
         let req = ExternalReq {
             status: "complete".to_string(),
-            target: target.clone(),
-            body: serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string()),
+            target: result.target.clone(),
+            body: serde_json::to_string(result).unwrap_or_else(|_| "{}".to_string()),
             version: crate::config::VERSION,
             scan_uid: scan_uid.to_string(),
             task_uid: task_uid.map(String::from),
             country,
             port: None,
         };
-        if let Ok(resp) = super::common::post_json(&url, &req, api_key).await {
-            if resp.status().is_success() {
-                count += 1;
-            } else {
-                tracing::warn!(target = %target, status = %resp.status(), "dnsx checkout non-200");
-            }
+        match sink.emit(Stage::Dns, req).await {
+            Ok(()) => count += 1,
+            Err(e) => tracing::warn!(target = %result.target, err = %e, "dnsx checkout failed"),
         }
     }
 

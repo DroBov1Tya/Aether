@@ -5,6 +5,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NucleiRow {
@@ -53,19 +54,16 @@ struct NucleiInfo {
 }
 
 pub async fn run_nuclei(
-    external_server_path: &str,
+    sink: &Sink,
     urls: &[String],
     scan_uid: &str,
     task_uid: Option<&str>,
     pool: &[String],
-    api_key: &str,
 ) -> Result<usize> {
     if urls.is_empty() {
         return Ok(0);
     }
 
-    // Ladder: direct first, then pool in order. Empty findings is a valid
-    // result for a hunt tool, so only a process error advances to a proxy.
     let mut rows: Vec<NucleiRow> = Vec::new();
     for attempt in super::proxy::attempts(pool) {
         match run_once(urls, attempt.as_deref()).await {
@@ -80,12 +78,11 @@ pub async fn run_nuclei(
     }
 
     let count = rows.len();
-    send_findings(external_server_path, scan_uid, task_uid, &rows, api_key).await?;
+    send_findings(sink, scan_uid, task_uid, &rows).await?;
     tracing::info!(urls = urls.len(), findings = count, "nuclei batch complete");
     Ok(count)
 }
 
-/// One nuclei invocation over the URL batch, with an optional proxy.
 async fn run_once(urls: &[String], proxy: Option<&str>) -> Result<Vec<NucleiRow>> {
     let cfg = crate::config::cfg();
 
@@ -201,11 +198,10 @@ fn split_host_port(raw_host: &str, matched_at: &str) -> (String, String) {
 }
 
 async fn send_findings(
-    external_server_path: &str,
+    sink: &Sink,
     scan_uid: &str,
     task_uid: Option<&str>,
     rows: &[NucleiRow],
-    api_key: &str,
 ) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
@@ -215,10 +211,9 @@ async fn send_findings(
         by_host.entry(r.host.as_str()).or_default().push(r);
     }
 
-    let url = format!("{}/api/checkout/nuclei", external_server_path);
     for (host, host_rows) in by_host {
         let country = super::common::lookup_country(host).await;
-        let json = ExternalReq {
+        let req = ExternalReq {
             status: "complete".to_string(),
             target: host.to_string(),
             body: serde_json::to_string(&host_rows).unwrap_or_else(|_| "[]".to_string()),
@@ -228,9 +223,8 @@ async fn send_findings(
             country,
             port: None,
         };
-        let resp = super::common::post_json(&url, &json, api_key).await?;
-        if !resp.status().is_success() {
-            tracing::warn!(host, status = %resp.status(), "nuclei checkout non-200");
+        if let Err(e) = sink.emit(Stage::Nuclei, req).await {
+            tracing::warn!(host, err = %e, "nuclei checkout failed");
         }
     }
     Ok(())

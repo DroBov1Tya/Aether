@@ -86,7 +86,7 @@ impl Config {
                 .unwrap_or(8020),
             server_path: std::env::var("SERVER_PATH")
                 .unwrap_or_else(|_| format!("0.0.0.0:{}", 8020)),
-            external_server_path: env("EXTERNAL_SERVER_PATH"),
+            external_server_path: env_or("EXTERNAL_SERVER_PATH", ""),
             hxn_delay: env_or("HXN_DELAY", "5").parse().unwrap_or(5),
             scan_cooldown: env_or("SCAN_COOLDOWN", "60").parse().unwrap_or(60),
             api_key: env_or("API_KEY", ""),

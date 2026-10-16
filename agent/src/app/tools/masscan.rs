@@ -3,16 +3,17 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::{fs, process::Command};
 
+use super::sink::{Sink, Stage};
+
 #[tracing::instrument(name = "masscan", skip_all, fields(target = target))]
 pub async fn run_masscan(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     ports: &str,
     max_rate: u32,
     scans_output_path: &str,
-    api_key: &str,
 ) -> Result<BTreeMap<String, Vec<i64>>> {
     let out_dir = Path::new(scans_output_path);
     fs::create_dir_all(out_dir).await?;
@@ -59,7 +60,7 @@ pub async fn run_masscan(
     let host_ports = parse_masscan_json(&raw);
 
     for (host, plist) in &host_ports {
-        if let Err(e) = send_result(external_server_path, host, scan_uid, task_uid, plist, api_key).await {
+        if let Err(e) = send_result(sink, host, scan_uid, task_uid, plist).await {
             tracing::warn!(host, error = %e, "failed to report masscan result");
         }
     }
@@ -97,16 +98,14 @@ fn parse_masscan_json(raw: &str) -> BTreeMap<String, Vec<i64>> {
 }
 
 async fn send_result(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     ports: &[i64],
-    api_key: &str,
 ) -> Result<()> {
-    let url = format!("{}/api/checkout/masscan", external_server_path);
     let country = super::common::lookup_country(target).await;
-    let json = super::common::ExternalReq {
+    let req = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(ports)?,
@@ -116,10 +115,5 @@ async fn send_result(
         country,
         port: None,
     };
-
-    let response = super::common::post_json(&url, &json, api_key).await?;
-    if !response.status().is_success() {
-        anyhow::bail!("server returned {}", response.status());
-    }
-    Ok(())
+    sink.emit(Stage::Masscan, req).await
 }

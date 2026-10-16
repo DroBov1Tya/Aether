@@ -5,6 +5,7 @@ use std::time::Duration;
 use tokio::{fs, process::Command};
 
 use super::common::{CENSYS_NMAP_ARGS, CENSYS_UA};
+use super::sink::{Sink, Stage};
 
 mod parser;
 
@@ -31,14 +32,14 @@ const CENSYS_HTTP_SCRIPTS: &str = "banner,ssl-cert,http-title,http-server-header
 
 #[tracing::instrument(name = "nmap", skip_all, fields(target = target))]
 pub async fn run_nmap(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     ports: &str,
     scans_output_path: &str,
     proxy: Option<&str>,
-    api_key: &str,
+    cooldown_secs: u64,
 ) -> Result<Vec<String>> {
     let out_dir = Path::new(scans_output_path);
     fs::create_dir_all(out_dir).await?;
@@ -136,12 +137,11 @@ pub async fn run_nmap(
                 }
 
                 if let Err(e) = send_result(
-                    external_server_path,
+                    sink,
                     &result_port,
                     target,
                     scan_uid,
                     task_uid,
-                    api_key,
                 )
                 .await
                 {
@@ -167,10 +167,9 @@ pub async fn run_nmap(
 
     let _ = fs::remove_file(&xml_path).await;
 
-    let cooldown = crate::config::cfg().scan_cooldown;
-    if cooldown > 0 {
-        tracing::info!("Cooldown {}s", cooldown);
-        tokio::time::sleep(Duration::from_secs(cooldown)).await;
+    if cooldown_secs > 0 {
+        tracing::info!("Cooldown {}s", cooldown_secs);
+        tokio::time::sleep(Duration::from_secs(cooldown_secs)).await;
     }
 
     Ok(http_services)
@@ -420,16 +419,14 @@ fn extract_html_title(line: &str) -> Option<String> {
 }
 
 async fn send_result(
-    external_server_path: &str,
+    sink: &Sink,
     result_port: &HashMap<String, String>,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
-    api_key: &str,
 ) -> Result<()> {
-    let url = format!("{}/api/checkout/nmap", external_server_path);
     let country = super::common::lookup_country(target).await;
-    let json = super::common::ExternalReq {
+    let req = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(result_port)?,
@@ -440,9 +437,5 @@ async fn send_result(
         port: None,
     };
 
-    let response = super::common::post_json(&url, &json, api_key).await?;
-    if !response.status().is_success() {
-        anyhow::bail!("server returned {}", response.status());
-    }
-    Ok(())
+    sink.emit(Stage::Nmap, req).await
 }

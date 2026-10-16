@@ -1,8 +1,6 @@
 use reqwest::Client;
 use std::time::Duration;
 
-/// Fetch the current proxy pool from the server (`GET /api/proxies`).
-/// Returns an empty vec on any failure — the pipeline then runs direct-only.
 pub async fn fetch_pool(external_server_path: &str, api_key: &str) -> Vec<String> {
     let base = external_server_path.trim_end_matches('/');
     let url = format!("{base}/api/proxies");
@@ -36,8 +34,19 @@ pub async fn fetch_pool(external_server_path: &str, api_key: &str) -> Vec<String
         .unwrap_or_default()
 }
 
-/// Ordered proxy attempts for one stage: direct first (None), then each pool
-/// entry in order. Tools walk this list, stopping at the first usable result.
+pub fn local_pool(cfg: &crate::config::Config, cli_proxies: &[String]) -> Vec<String> {
+    let cli: Vec<String> = cli_proxies
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if !cli.is_empty() {
+        cli
+    } else {
+        cfg.proxies.clone()
+    }
+}
+
 pub fn attempts(pool: &[String]) -> Vec<Option<String>> {
     let mut v: Vec<Option<String>> = Vec::with_capacity(pool.len() + 1);
     v.push(None);

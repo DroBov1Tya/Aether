@@ -1,47 +1,45 @@
 use anyhow::Result;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
-#[derive(Debug, Deserialize)]
-struct GeoResp {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GeoResp {
     #[serde(default)]
-    status: String,
+    pub status: String,
     #[serde(default)]
-    country: String,
+    pub country: String,
     #[serde(default, rename = "countryCode")]
-    country_code: String,
+    pub country_code: String,
     #[serde(default)]
-    city: String,
+    pub city: String,
     #[serde(default)]
-    lat: f64,
+    pub lat: f64,
     #[serde(default)]
-    lon: f64,
+    pub lon: f64,
     #[serde(default, rename = "as")]
-    asn: String,
+    pub asn: String,
     #[serde(default)]
-    org: String,
+    pub org: String,
     #[serde(default)]
-    isp: String,
+    pub isp: String,
 }
 
 pub async fn enrich_hosts(
-    external_server_path: &str,
+    sink: &Sink,
     hosts: &[String],
     scan_uid: &str,
     task_uid: Option<&str>,
-    api_key: &str,
 ) -> Result<usize> {
     let mut done = 0;
     for host in hosts {
-        // ip-api.com resolves hostnames too; the target key matches other tables.
         if host.trim().is_empty() {
             continue;
         }
         if let Some(geo) = lookup(host).await {
-            // ip-api.com free tier: 45 req/min. Space calls out (~1.4s).
             if hosts.len() > 1 {
                 tokio::time::sleep(Duration::from_millis(1400)).await;
             }
@@ -58,7 +56,6 @@ pub async fn enrich_hosts(
                 "org": geo.org,
                 "isp": geo.isp,
             });
-            let url = format!("{}/api/checkout/geo", external_server_path);
             let req = ExternalReq {
                 status: "complete".to_string(),
                 target: host.to_string(),
@@ -69,10 +66,8 @@ pub async fn enrich_hosts(
                 country: Some(geo.country.clone()),
                 port: None,
             };
-            if let Ok(resp) = super::common::post_json(&url, &req, api_key).await {
-                if resp.status().is_success() {
-                    done += 1;
-                }
+            if sink.emit(Stage::Geo, req).await.is_ok() {
+                done += 1;
             }
         }
     }

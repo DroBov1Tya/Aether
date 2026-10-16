@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicU8;
 use tokio::sync::{Semaphore, broadcast};
 
 mod server;
+pub use server::handlers::scan;
 pub mod tools;
 
 #[derive(Clone)]
@@ -18,6 +19,21 @@ pub struct AppState {
 
 pub struct Application {
     state: Arc<AppState>,
+}
+
+pub fn minimal_state() -> Arc<AppState> {
+    let cfg = config::cfg();
+    let (shutdown, _) = broadcast::channel(1);
+    let scan_permits = Arc::new(Semaphore::new(cfg.max_concurrent_scans.max(1)));
+    let busy = Arc::new(AtomicU8::new(0));
+    let capacity = Arc::new(AtomicU8::new(cfg.max_concurrent_scans.max(1) as u8));
+    Arc::new(AppState {
+        cfg,
+        shutdown,
+        scan_permits,
+        busy,
+        capacity,
+    })
 }
 
 impl Application {

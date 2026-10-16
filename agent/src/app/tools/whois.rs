@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 
+use super::sink::{Sink, Stage};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhoisResult {
     pub target: String,
@@ -16,11 +18,10 @@ pub struct WhoisResult {
 }
 
 pub async fn run_whois(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
-    api_key: &str,
 ) -> Result<()> {
     let output = Command::new("whois").arg(target).output().await?;
 
@@ -51,15 +52,7 @@ pub async fn run_whois(
         raw,
     };
 
-    send_to_server(
-        external_server_path,
-        target,
-        scan_uid,
-        task_uid,
-        &result,
-        api_key,
-    )
-    .await?;
+    send_to_server(sink, target, scan_uid, task_uid, &result).await?;
 
     Ok(())
 }
@@ -98,14 +91,12 @@ fn extract_lines(raw: &str, prefixes: &[&str], max: usize) -> Vec<String> {
 }
 
 async fn send_to_server(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     result: &WhoisResult,
-    api_key: &str,
 ) -> Result<()> {
-    let url = format!("{}/api/checkout/whois", external_server_path);
     let body = serde_json::to_string(result)?;
 
     let country = super::common::lookup_country(target).await;
@@ -120,6 +111,5 @@ async fn send_to_server(
         port: None,
     };
 
-    super::common::post_json(&url, &req, api_key).await?;
-    Ok(())
+    sink.emit(Stage::Whois, req).await
 }

@@ -6,6 +6,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpxRow {
@@ -54,23 +55,22 @@ struct HttpxLine {
 }
 
 pub async fn run_httpx(
-    external_server_path: &str,
+    sink: &Sink,
     targets: &[String],
     scan_uid: &str,
     task_uid: Option<&str>,
     screenshots: bool,
     pool: &[String],
-    api_key: &str,
+    screenshot_dir: &str,
 ) -> Result<Vec<String>> {
     if targets.is_empty() {
         return Ok(Vec::new());
     }
 
-    // Ladder: direct first, then each pool proxy in order until we get rows.
     let mut rows: Vec<HttpxRow> = Vec::new();
     let mut shots: Vec<(String, String, String)> = Vec::new();
     for attempt in super::proxy::attempts(pool) {
-        match run_once(targets, screenshots, attempt.as_deref()).await {
+        match run_once(targets, screenshots, attempt.as_deref(), screenshot_dir).await {
             Ok((r, s)) if !r.is_empty() => {
                 rows = r;
                 shots = s;
@@ -87,13 +87,12 @@ pub async fn run_httpx(
 
     let count = rows.len();
     let urls: Vec<String> = rows.iter().map(|r| r.url.clone()).collect();
-    send_probe_rows(external_server_path, scan_uid, task_uid, &rows, api_key).await?;
+    send_probe_rows(sink, scan_uid, task_uid, &rows).await?;
 
     if screenshots {
         for (host, port, path) in shots {
             if let Err(e) =
-                send_screenshot_file(external_server_path, &host, &port, scan_uid, task_uid, &path, api_key)
-                    .await
+                send_screenshot_file(sink, &host, &port, scan_uid, task_uid, &path).await
             {
                 tracing::warn!(host, port, err = %e, "httpx: screenshot upload failed");
             }
@@ -104,15 +103,13 @@ pub async fn run_httpx(
     Ok(urls)
 }
 
-/// One httpx invocation over the whole batch, with an optional proxy.
-/// Returns parsed rows + screenshot paths (no server posting here).
 async fn run_once(
     targets: &[String],
     screenshots: bool,
     proxy: Option<&str>,
+    screenshot_dir: &str,
 ) -> Result<(Vec<HttpxRow>, Vec<(String, String, String)>)> {
     let cfg = crate::config::cfg();
-    let screenshot_dir = "/app/screenshots";
     tokio::fs::create_dir_all(screenshot_dir).await.ok();
 
     let mut args: Vec<String> = vec![
@@ -231,11 +228,10 @@ async fn run_once(
 }
 
 async fn send_probe_rows(
-    external_server_path: &str,
+    sink: &Sink,
     scan_uid: &str,
     task_uid: Option<&str>,
     rows: &[HttpxRow],
-    api_key: &str,
 ) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
@@ -245,10 +241,9 @@ async fn send_probe_rows(
         by_host.entry(r.host.as_str()).or_default().push(r);
     }
 
-    let url = format!("{}/api/checkout/httpx", external_server_path);
     for (host, host_rows) in by_host {
         let country = super::common::lookup_country(host).await;
-        let json = ExternalReq {
+        let req = ExternalReq {
             status: "complete".to_string(),
             target: host.to_string(),
             body: serde_json::to_string(&host_rows).unwrap_or_else(|_| "[]".to_string()),
@@ -258,31 +253,36 @@ async fn send_probe_rows(
             country,
             port: None,
         };
-        let resp = super::common::post_json(&url, &json, api_key).await?;
-        if !resp.status().is_success() {
-            tracing::warn!(host, status = %resp.status(), "httpx checkout non-200");
+        if let Err(e) = sink.emit(Stage::Httpx, req).await {
+            tracing::warn!(host, err = %e, "httpx checkout failed");
         }
     }
     Ok(())
 }
 
 async fn send_screenshot_file(
-    external_server_path: &str,
+    sink: &Sink,
     host: &str,
     port: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     path: &str,
-    api_key: &str,
 ) -> Result<()> {
+    if sink.is_local() {
+        if let Ok(meta) = tokio::fs::metadata(path).await {
+            if meta.len() >= 1000 {
+                sink.note_screenshot(path).await;
+            }
+        }
+        return Ok(());
+    }
     let bytes = tokio::fs::read(path).await?;
     if bytes.len() < 1000 {
         return Ok(());
     }
     let encoded = STANDARD.encode(&bytes);
-    let url = format!("{}/api/checkout/hxn", external_server_path);
     let country = super::common::lookup_country(host).await;
-    let json = ExternalReq {
+    let req = ExternalReq {
         status: "success".to_string(),
         target: host.to_string(),
         body: encoded,
@@ -292,11 +292,7 @@ async fn send_screenshot_file(
         country,
         port: Some(port.to_string()),
     };
-    let resp = super::common::post_json(&url, &json, api_key).await?;
-    if !resp.status().is_success() {
-        anyhow::bail!("hxn checkout returned {}", resp.status());
-    }
-    Ok(())
+    sink.emit(Stage::Hxn, req).await
 }
 
 fn header_value_to_string(v: &serde_json::Value) -> String {

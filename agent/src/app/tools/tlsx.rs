@@ -5,6 +5,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TlsxRow {
@@ -51,18 +52,16 @@ struct TlsxLine {
 }
 
 pub async fn run_tlsx(
-    external_server_path: &str,
+    sink: &Sink,
     targets: &[String],
     scan_uid: &str,
     task_uid: Option<&str>,
     pool: &[String],
-    api_key: &str,
 ) -> Result<usize> {
     if targets.is_empty() {
         return Ok(0);
     }
 
-    // Ladder: direct first, then each pool proxy in order until we get certs.
     let mut rows: Vec<TlsxRow> = Vec::new();
     for attempt in super::proxy::attempts(pool) {
         match run_once(targets, attempt.as_deref()).await {
@@ -80,7 +79,6 @@ pub async fn run_tlsx(
     }
 
     let count = rows.len();
-    let url = format!("{}/api/checkout/ssl", external_server_path);
     for row in &rows {
         let country = super::common::lookup_country(&row.host).await;
         let req = ExternalReq {
@@ -93,10 +91,8 @@ pub async fn run_tlsx(
             country,
             port: None,
         };
-        if let Ok(resp) = super::common::post_json(&url, &req, api_key).await {
-            if !resp.status().is_success() {
-                tracing::warn!(host = %row.host, status = %resp.status(), "tlsx checkout non-200");
-            }
+        if let Err(e) = sink.emit(Stage::Ssl, req).await {
+            tracing::warn!(host = %row.host, err = %e, "tlsx checkout failed");
         }
     }
 
@@ -104,7 +100,6 @@ pub async fn run_tlsx(
     Ok(count)
 }
 
-/// One tlsx invocation over the host:port batch, with an optional proxy.
 async fn run_once(targets: &[String], proxy: Option<&str>) -> Result<Vec<TlsxRow>> {
     let cfg = crate::config::cfg();
 

@@ -9,6 +9,7 @@ axum = "0.8.9"
 axum-listener = "0.3.0"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
 colored = "3.1.1"
 dotenvy = "0.15"
 obfstr = "0.4.4"

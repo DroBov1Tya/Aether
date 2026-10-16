@@ -2,9 +2,11 @@ use anyhow::Result;
 use std::time::Duration;
 use tokio::process::Command;
 
+use super::sink::{Sink, Stage};
+
 #[tracing::instrument(name = "rustscan", skip_all, fields(target = target))]
 pub async fn run_rustscan(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
@@ -12,7 +14,7 @@ pub async fn run_rustscan(
     threads: Option<u32>,
     timeout_ms: Option<u64>,
     proxy: Option<&str>,
-    api_key: &str,
+    cooldown_secs: u64,
 ) -> Result<Vec<i64>> {
     let mut cmd = Command::new("rustscan");
     super::common::apply_proxy_with(&mut cmd, proxy);
@@ -40,9 +42,6 @@ pub async fn run_rustscan(
     }
     if let Some(range) = port_range.filter(|r| !r.trim().is_empty()) {
         let r = range.trim();
-        // rustscan splits ports two ways: `-r start-end` for a contiguous
-        // range, `-p a,b,c` for an explicit list / single port. A hyphen with
-        // no comma is a range; anything else (list or single port) is `-p`.
         if r.contains('-') && !r.contains(',') {
             args.push("-r".to_string());
             args.push(r.to_string());
@@ -71,23 +70,13 @@ pub async fn run_rustscan(
     let stdout = String::from_utf8_lossy(&output.stdout);
     let ports = parse_ports(&stdout)?;
 
-    if let Err(e) = send_result(
-        external_server_path,
-        target,
-        scan_uid,
-        task_uid,
-        &ports,
-        api_key,
-    )
-    .await
-    {
+    if let Err(e) = send_result(sink, target, scan_uid, task_uid, &ports).await {
         tracing::warn!(error = %e, "Failed to report scan results");
     }
 
-    let cooldown = crate::config::cfg().scan_cooldown;
-    if cooldown > 0 {
-        tracing::info!("Cooldown {}s", cooldown);
-        tokio::time::sleep(Duration::from_secs(cooldown)).await;
+    if cooldown_secs > 0 {
+        tracing::info!("Cooldown {}s", cooldown_secs);
+        tokio::time::sleep(Duration::from_secs(cooldown_secs)).await;
     }
 
     Ok(ports)
@@ -112,16 +101,14 @@ fn parse_ports(stdout: &str) -> Result<Vec<i64>> {
 }
 
 async fn send_result(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     ports: &[i64],
-    api_key: &str,
 ) -> Result<()> {
-    let url = format!("{}/api/checkout/rustscan", external_server_path);
     let country = super::common::lookup_country(target).await;
-    let json = super::common::ExternalReq {
+    let req = super::common::ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(ports)?,
@@ -131,10 +118,5 @@ async fn send_result(
         country,
         port: None,
     };
-
-    let response = super::common::post_json(&url, &json, api_key).await?;
-    if !response.status().is_success() {
-        anyhow::bail!("server returned {}", response.status());
-    }
-    Ok(())
+    sink.emit(Stage::Rustscan, req).await
 }

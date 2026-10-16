@@ -2,6 +2,7 @@ use anyhow::Result;
 use tokio::process::Command;
 
 use super::common::ExternalReq;
+use super::sink::{Sink, Stage};
 
 const PATHS: &[&str] = &[
     "/admin",
@@ -67,12 +68,13 @@ pub struct FuzzFinding {
 
 #[tracing::instrument(name = "fuzzing", skip_all, fields(target = target))]
 pub async fn run_fuzzing(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     http_ports: &[String],
-    api_key: &str,
+    screenshots: bool,
+    screenshot_dir: &str,
 ) -> Result<Vec<FuzzFinding>> {
     if http_ports.is_empty() {
         return Ok(Vec::new());
@@ -108,24 +110,10 @@ pub async fn run_fuzzing(
     }
 
     if !findings.is_empty() {
-        send_findings(
-            external_server_path,
-            target,
-            scan_uid,
-            task_uid,
-            &findings,
-            api_key,
-        )
-        .await?;
-        take_screenshots(
-            external_server_path,
-            target,
-            scan_uid,
-            task_uid,
-            &findings,
-            api_key,
-        )
-        .await?;
+        send_findings(sink, target, scan_uid, task_uid, &findings).await?;
+        if screenshots {
+            take_screenshots(sink, target, scan_uid, task_uid, &findings, screenshot_dir).await?;
+        }
     }
 
     Ok(findings)
@@ -164,16 +152,14 @@ async fn probe_url(url: &str) -> Result<u16> {
 }
 
 async fn send_findings(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     findings: &[FuzzFinding],
-    api_key: &str,
 ) -> Result<()> {
-    let url = format!("{}/api/checkout/fuzzing", external_server_path);
     let country = super::common::lookup_country(target).await;
-    let json = ExternalReq {
+    let req = ExternalReq {
         status: "complete".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(findings)?,
@@ -184,22 +170,18 @@ async fn send_findings(
         port: None,
     };
 
-    let response = super::common::post_json(&url, &json, api_key).await?;
-    if !response.status().is_success() {
-        anyhow::bail!("server returned {}", response.status());
-    }
-    Ok(())
+    sink.emit(Stage::Fuzzing, req).await
 }
 
 async fn take_screenshots(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     findings: &[FuzzFinding],
-    api_key: &str,
+    screenshot_dir: &str,
 ) -> Result<()> {
-    let screenshot_dir = std::path::PathBuf::from("/app/screenshots");
+    let screenshot_dir = std::path::PathBuf::from(screenshot_dir);
     tokio::fs::create_dir_all(&screenshot_dir).await.ok();
 
     for finding in findings {
@@ -235,14 +217,13 @@ async fn take_screenshots(
         if let Ok(out) = output {
             if out.status.success() && tokio::fs::metadata(&out_path).await.is_ok() {
                 send_screenshot_file(
-                    external_server_path,
+                    sink,
                     target,
                     scan_uid,
                     task_uid,
                     &finding.port,
                     &finding.path,
                     &out_path,
-                    api_key,
                 )
                 .await
                 .ok();
@@ -254,22 +235,29 @@ async fn take_screenshots(
 }
 
 async fn send_screenshot_file(
-    external_server_path: &str,
+    sink: &Sink,
     target: &str,
     scan_uid: &str,
     task_uid: Option<&str>,
     port: &str,
     _path: &str,
     file_path: &std::path::PathBuf,
-    api_key: &str,
 ) -> Result<()> {
+    if sink.is_local() {
+        if let Ok(meta) = tokio::fs::metadata(file_path).await {
+            if meta.len() >= 1000 {
+                sink.note_screenshot(&file_path.to_string_lossy()).await;
+            }
+        }
+        return Ok(());
+    }
+
     let image_bytes = tokio::fs::read(file_path).await?;
     if image_bytes.len() < 1000 {
         return Ok(());
     }
 
     let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &image_bytes);
-    let url = format!("{}/api/checkout/hxn", external_server_path);
     let country = super::common::lookup_country(target).await;
 
     let payload = serde_json::json!({
@@ -278,7 +266,7 @@ async fn send_screenshot_file(
         "image_base64": encoded,
     });
 
-    let json = ExternalReq {
+    let req = ExternalReq {
         status: "success".to_string(),
         target: target.to_string(),
         body: serde_json::to_string(&payload)?,
@@ -289,9 +277,5 @@ async fn send_screenshot_file(
         port: None,
     };
 
-    let response = super::common::post_json(&url, &json, api_key).await?;
-    if !response.status().is_success() {
-        anyhow::bail!("API returned {}", response.status());
-    }
-    Ok(())
+    sink.emit(Stage::Hxn, req).await
 }
